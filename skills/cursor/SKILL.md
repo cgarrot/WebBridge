@@ -2,7 +2,8 @@
 name: webbridge-browser
 description: >-
   Control Chrome browser via WebBridge local daemon. Navigate pages, take
-  screenshots, click, fill forms, run JavaScript, manage tabs, export PDF.
+  screenshots, click with visible cursor, fill forms, run JavaScript, manage
+  tabs, DOM element interaction, clipboard, console logs, and more.
   Use when the user mentions @browser, @chrome, or requests any browser
   automation, web scraping, page interaction, or screenshot capture.
 ---
@@ -10,7 +11,7 @@ description: >-
 # WebBridge Browser Automation (Cursor)
 
 Control the user's Chrome browser through the WebBridge daemon HTTP API.
-Cursor agent calls tools via Shell (curl) against the daemon's HTTP endpoint.
+Cursor agent calls tools via Shell (curl/node) against the daemon's HTTP endpoint.
 
 ## Connection Check
 
@@ -28,7 +29,7 @@ curl -s http://127.0.0.1:10087/api/status
 cd <webbridge-project-root>/packages/daemon && pnpm dev
 ```
 
-Wait 2 seconds, then retry the status check. Do not repeat the daemon check after the first successful one in a session.
+Wait 2 seconds, then retry the status check.
 
 ## Calling Tools
 
@@ -41,91 +42,103 @@ curl -s -X POST http://127.0.0.1:10087/api/tool -H "Content-Type: application/js
 Response on success: `{"data": {...}}`
 Response on error: `{"error": "message"}`
 
-## Tools
+## Tool Reference
 
-### navigate
+### Navigation & Content
+| Tool | Required Args | Optional Args | Description |
+|------|--------------|---------------|-------------|
+| navigate | url | tabId, waitUntil | Navigate to URL |
+| screenshot | — | tabId, fullPage, format, quality, clip | Capture page screenshot (base64) |
+| evaluate | expression | tabId, returnByValue | Run JS in page context |
+| snapshot | — | tabId, type | Get DOM HTML or accessibility tree |
+
+### CUA (Coordinate-based, Visible Cursor)
+| Tool | Required Args | Optional Args | Description |
+|------|--------------|---------------|-------------|
+| move | x, y | tabId | Move visible cursor to position |
+| click | x, y | tabId, button, clickCount | Click with cursor animation |
+| double_click | x, y | tabId, button | Double-click |
+| hover | x, y | tabId, duration | Hover (triggers CSS :hover) |
+| scroll | x, y | tabId, deltaX, deltaY | Scroll at position |
+| drag | path [{x,y}...] | tabId | Drag along path |
+
+### DOM CUA (Node-ID-based)
+| Tool | Required Args | Optional Args | Description |
+|------|--------------|---------------|-------------|
+| get_visible_dom | — | tabId | List interactable elements with IDs |
+| click_element | nodeId | tabId | Click element by node ID |
+| type_element | nodeId, text | tabId, clearFirst | Type into element by node ID |
+| highlight | — | tabId, nodeId, clear | Highlight element overlay |
+| element_info | x, y | tabId | Get element info at coordinates |
+
+### Form & Keyboard
+| Tool | Required Args | Optional Args | Description |
+|------|--------------|---------------|-------------|
+| fill | selector, value | tabId | Fill form input by CSS selector |
+| send_keys | keys[] | tabId, modifiers | Send keyboard events |
+
+### Tab Management
+| Tool | Required Args | Optional Args | Description |
+|------|--------------|---------------|-------------|
+| list_tabs | — | — | List all open tabs |
+| new_tab | — | url, active | Create new tab |
+| switch_tab | tabId | — | Activate tab + focus window |
+| get_tab_info | — | tabId | Get tab url/title/status |
+| find_tab | — | query, url | Find tabs by title/URL |
+| close_tab | tabId | — | Close tab |
+| back | — | tabId | Navigate back |
+| forward | — | tabId | Navigate forward |
+| reload | — | tabId, ignoreCache | Reload tab |
+
+### Advanced
+| Tool | Required Args | Optional Args | Description |
+|------|--------------|---------------|-------------|
+| clipboard | action | tabId, text | Read/write clipboard |
+| console_logs | — | tabId, levels, filter, limit | Get console output |
+| wait_for | type | tabId, value, timeoutMs | Wait for condition |
+| save_as_pdf | — | tabId, landscape, printBackground | Export PDF |
+| upload | selector, filePaths | tabId | Upload files |
+
+## Session & Tab Group UX
+
+| Tool | Required Args | Optional Args | Description |
+|------|--------------|---------------|-------------|
+| name_session | name | — | Name the session; tabs auto-group under this name |
+| finalize_tabs | — | keep[{tabId,status}] | End session: close intermediate tabs, keep deliverables |
+| claim_tab | tabId | — | Claim a user tab into the session group |
+| browser_history | — | query, from, to, limit | Search browsing history |
+
+### Session lifecycle
 ```json
+// 1. Name the session first
+{"name":"name_session","args":{"name":"🔎 Research Task"}}
+// 2. Work with browser (tabs auto-grouped)
 {"name":"navigate","args":{"url":"https://example.com"}}
+// 3. Finalize at the end
+{"name":"finalize_tabs","args":{"keep":[{"tabId":123,"status":"deliverable"}]}}
 ```
-Optional: `tabId`, `waitUntil` ("load"|"domcontentloaded")
 
-### screenshot
-Returns base64 image. Save to file for viewing:
-```bash
-curl -s -X POST http://127.0.0.1:10087/api/tool -H "Content-Type: application/json" -d "{\"name\":\"screenshot\",\"args\":{}}" | node -e "process.stdin.on('data',d=>{const j=JSON.parse(d);require('fs').writeFileSync('screenshot.png',Buffer.from(j.data.data,'base64'))})"
-```
-Optional: `tabId`, `fullPage` (bool), `format` ("png"|"jpeg"), `quality`, `clip` ({x,y,width,height})
+## Workflow Patterns
 
-### click
+### DOM CUA workflow (preferred for precision)
 ```json
-{"name":"click","args":{"x":100,"y":200}}
+// 1. Get all interactable elements
+{"name":"get_visible_dom","args":{}}
+// 2. Click by node ID (shows visible cursor)
+{"name":"click_element","args":{"nodeId":"n3"}}
+// 3. Type into input by node ID
+{"name":"type_element","args":{"nodeId":"n5","text":"hello"}}
 ```
-Optional: `tabId`, `button` ("left"|"right"|"middle"), `clickCount`
 
-### fill
+### Coordinate workflow
 ```json
-{"name":"fill","args":{"selector":"#email","value":"user@example.com"}}
+// 1. Screenshot to see the page
+{"name":"screenshot","args":{}}
+// 2. Click at coordinates (shows visible cursor)
+{"name":"click","args":{"x":200,"y":300}}
+// 3. Scroll down
+{"name":"scroll","args":{"x":400,"y":300,"deltaY":-500}}
 ```
-Optional: `tabId`
-
-### evaluate
-Run JavaScript in page context:
-```json
-{"name":"evaluate","args":{"expression":"document.title"}}
-```
-Optional: `tabId`, `returnByValue` (bool)
-
-### snapshot
-Get DOM or accessibility tree:
-```json
-{"name":"snapshot","args":{"type":"dom"}}
-```
-Optional: `tabId`, `type` ("dom"|"accessibility")
-
-### list_tabs
-```json
-{"name":"list_tabs","args":{}}
-```
-
-### find_tab
-```json
-{"name":"find_tab","args":{"query":"GitHub"}}
-```
-Optional: `url`
-
-### close_tab
-```json
-{"name":"close_tab","args":{"tabId":123}}
-```
-
-### send_keys
-```json
-{"name":"send_keys","args":{"keys":["Enter"]}}
-```
-Special keys: Enter, Tab, Escape, Backspace, Delete, ArrowUp/Down/Left/Right, Home, End
-Optional: `tabId`, `modifiers` (["ctrl","shift","alt","meta"])
-
-### save_as_pdf
-Returns base64 PDF:
-```json
-{"name":"save_as_pdf","args":{}}
-```
-Optional: `tabId`, `landscape` (bool), `printBackground` (bool)
-
-### upload
-```json
-{"name":"upload","args":{"selector":"input[type=file]","filePaths":["/absolute/path/to/file.txt"]}}
-```
-Use absolute paths. Optional: `tabId`
-
-## Workflow Pattern
-
-1. **Navigate** to the target page
-2. **Snapshot or screenshot** to understand current state
-3. **Interact** (click, fill, send_keys) based on what you see
-4. **Verify** with another snapshot/screenshot after interaction
-
-Always take a snapshot or screenshot before interacting to confirm element positions and page state. Do not guess coordinates or selectors without first observing the page.
 
 ## Error Recovery
 
@@ -133,7 +146,7 @@ Always take a snapshot or screenshot before interacting to confirm element posit
 |-------------|---------|--------|
 | 200 | Success | Use `data` field |
 | 400 | Bad request | Check tool name and args |
-| 500 | Tool error | Read `error` for details, retry if transient |
+| 500 | Tool error | Read `error` for details |
 | 502 | No extension | Ask user to check Chrome + extension |
 | ECONNREFUSED | Daemon down | Start daemon, wait, retry |
 

@@ -1,6 +1,6 @@
-import { defineConfig, type Plugin } from "vite";
+import { defineConfig, type Plugin, build as viteBuild } from "vite";
 import { resolve } from "path";
-import { cpSync, mkdirSync, writeFileSync, readFileSync } from "fs";
+import { cpSync, mkdirSync, writeFileSync } from "fs";
 
 function copyExtensionAssets(): Plugin {
   return {
@@ -55,6 +55,37 @@ function buildPopupHtml(): Plugin {
   };
 }
 
+function buildContentScripts(): Plugin {
+  return {
+    name: "build-content-scripts",
+    async closeBundle() {
+      const contentEntries = ["cursor-overlay"];
+      for (const name of contentEntries) {
+        await viteBuild({
+          configFile: false,
+          build: {
+            outDir: resolve(__dirname, "dist/content"),
+            emptyOutDir: false,
+            lib: {
+              entry: resolve(__dirname, `src/content/${name}.ts`),
+              name: `__webbridge_${name.replace(/-/g, "_")}`,
+              formats: ["iife"],
+              fileName: () => `${name}.js`,
+            },
+            rollupOptions: { output: { extend: true } },
+            minify: true,
+          },
+          resolve: {
+            alias: {
+              "@webbridge/shared": resolve(__dirname, "../shared/src"),
+            },
+          },
+        });
+      }
+    },
+  };
+}
+
 export default defineConfig({
   build: {
     outDir: "dist",
@@ -72,7 +103,7 @@ export default defineConfig({
       },
     },
   },
-  plugins: [copyExtensionAssets(), buildPopupHtml()],
+  plugins: [copyExtensionAssets(), buildPopupHtml(), buildContentScripts()],
   resolve: {
     alias: {
       "@webbridge/shared": resolve(__dirname, "../shared/src"),

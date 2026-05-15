@@ -29,6 +29,19 @@ async function init(): Promise<void> {
   }
 }
 
+// Keep Service Worker alive with periodic alarm (MV3 workaround)
+const KEEPALIVE_ALARM = "webbridge-keepalive";
+
+chrome.alarms.create(KEEPALIVE_ALARM, { periodInMinutes: 0.4 });
+
+chrome.alarms.onAlarm.addListener((alarm) => {
+  if (alarm.name !== KEEPALIVE_ALARM) return;
+
+  if (transport.status !== "connected") {
+    transport.connect().catch(() => {});
+  }
+});
+
 chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
   if (message.type === "GET_STATUS") {
     sendResponse({ status: transport.status });

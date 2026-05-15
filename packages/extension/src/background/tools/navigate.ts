@@ -1,6 +1,7 @@
 import type { NavigateArgs } from "@webbridge/shared";
 import { BaseTool, type ToolContext } from "./base.js";
 import { resolveTabId, waitForPageLoad } from "../../cdp/session.js";
+import { sessionManager } from "../session-manager.js";
 
 export class NavigateTool extends BaseTool {
   readonly name = "navigate" as const;
@@ -28,6 +29,14 @@ export class NavigateTool extends BaseTool {
       "Runtime.evaluate",
       { expression: "location.href", returnByValue: true }
     );
+
+    if (!sessionManager.isTracked(tabId)) {
+      try {
+        await sessionManager.addTabToSession(tabId, "agent");
+      } catch {
+        // best-effort
+      }
+    }
 
     return {
       tabId,

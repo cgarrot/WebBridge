@@ -1,12 +1,13 @@
 import type { ClickArgs } from "@webbridge/shared";
 import { BaseTool, type ToolContext } from "./base.js";
 import { resolveTabId } from "../../cdp/session.js";
+import { moveCursor, cursorClickEffect } from "../../cdp/cursor.js";
 
 const BUTTON_MAP: Record<string, number> = { left: 0, middle: 1, right: 2 };
 
 export class ClickTool extends BaseTool {
   readonly name = "click" as const;
-  readonly description = "Click at coordinates on the page";
+  readonly description = "Click at coordinates on the page with visible cursor";
 
   async execute(args: Record<string, unknown>, ctx: ToolContext): Promise<unknown> {
     const {
@@ -24,11 +25,14 @@ export class ClickTool extends BaseTool {
     const tabId = await resolveTabId(rawTabId);
     const cdpButton = BUTTON_MAP[button] ?? 0;
 
+    await moveCursor(tabId, x, y, true);
+    await cursorClickEffect(tabId, x, y);
+
     await ctx.cdp.send(tabId, "Input.dispatchMouseEvent", {
       type: "mousePressed",
       x,
       y,
-      button: button,
+      button,
       clickCount,
       buttons: 1 << cdpButton,
     });
@@ -37,7 +41,7 @@ export class ClickTool extends BaseTool {
       type: "mouseReleased",
       x,
       y,
-      button: button,
+      button,
       clickCount,
     });
 

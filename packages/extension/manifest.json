@@ -8,11 +8,13 @@
     "tabs",
     "activeTab",
     "debugger",
+    "scripting",
     "storage",
     "alarms",
     "tabGroups",
     "windows",
-    "nativeMessaging"
+    "nativeMessaging",
+    "history"
   ],
   "host_permissions": ["<all_urls>"],
   "background": {

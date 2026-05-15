@@ -1,27 +1,53 @@
 import { CDP_PROTOCOL_VERSION } from "@webbridge/shared";
 
-interface CDPTarget {
-  tabId: number;
-  attached: boolean;
-}
-
 export class CDPBridge {
-  private targets = new Map<number, CDPTarget>();
+  private attached = new Set<number>();
+
+  constructor() {
+    chrome.debugger.onDetach.addListener((source, reason) => {
+      if (source.tabId !== undefined) {
+        this.attached.delete(source.tabId);
+        console.log(`[CDP] Detached from tab ${source.tabId}: ${reason}`);
+      }
+    });
+  }
 
   async attach(tabId: number): Promise<void> {
-    if (this.targets.get(tabId)?.attached) return;
+    if (this.attached.has(tabId)) return;
 
-    await chrome.debugger.attach({ tabId }, CDP_PROTOCOL_VERSION);
-    this.targets.set(tabId, { tabId, attached: true });
+    try {
+      await chrome.debugger.attach({ tabId }, CDP_PROTOCOL_VERSION);
+      this.attached.add(tabId);
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+
+      if (msg.includes("Another debugger")) {
+        // Try to query actual targets to see if *we* already own it
+        const targets = await chrome.debugger.getTargets();
+        const target = targets.find((t) => t.tabId === tabId);
+        if (target?.attached) {
+          // Already attached by us (state was out of sync), fix it
+          this.attached.add(tabId);
+          return;
+        }
+        throw new Error(
+          `Tab ${tabId} has another debugger attached (DevTools or another extension). ` +
+          `Close DevTools on that tab and retry.`
+        );
+      }
+      throw new Error(`Failed to attach debugger to tab ${tabId}: ${msg}`);
+    }
   }
 
   async detach(tabId: number): Promise<void> {
-    const target = this.targets.get(tabId);
-    if (!target?.attached) return;
+    if (!this.attached.has(tabId)) return;
 
-    await chrome.debugger.detach({ tabId });
-    target.attached = false;
-    this.targets.delete(tabId);
+    try {
+      await chrome.debugger.detach({ tabId });
+    } catch {
+      // already detached
+    }
+    this.attached.delete(tabId);
   }
 
   async send<T = unknown>(
@@ -30,17 +56,30 @@ export class CDPBridge {
     params?: Record<string, unknown>
   ): Promise<T> {
     await this.attach(tabId);
-    const result = await chrome.debugger.sendCommand({ tabId }, method, params);
-    return result as T;
+    try {
+      const result = await chrome.debugger.sendCommand({ tabId }, method, params);
+      return result as T;
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+
+      // If attachment was lost mid-call, try one re-attach + retry
+      if (msg.includes("not attached") || msg.includes("Debugger is not attached")) {
+        this.attached.delete(tabId);
+        await this.attach(tabId);
+        const result = await chrome.debugger.sendCommand({ tabId }, method, params);
+        return result as T;
+      }
+      throw err;
+    }
   }
 
   async detachAll(): Promise<void> {
-    const tabIds = [...this.targets.keys()];
+    const tabIds = [...this.attached];
     await Promise.allSettled(tabIds.map((id) => this.detach(id)));
   }
 
   isAttached(tabId: number): boolean {
-    return this.targets.get(tabId)?.attached ?? false;
+    return this.attached.has(tabId);
   }
 }
 

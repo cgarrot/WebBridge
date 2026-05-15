@@ -12,4 +12,6 @@ export const MAX_RECONNECT_ATTEMPTS = 10;
 
 export const CDP_PROTOCOL_VERSION = "1.3";
 
+export const CURSOR_ANIMATION_MS = 250;
+
 export const EXTENSION_VERSION = "0.1.0";
