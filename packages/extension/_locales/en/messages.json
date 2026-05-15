@@ -1,0 +1,10 @@
+{
+  "extName": {
+    "message": "WebBridge",
+    "description": "Extension display name"
+  },
+  "extDescription": {
+    "message": "Browser automation bridge for AI tools",
+    "description": "Extension description"
+  }
+}

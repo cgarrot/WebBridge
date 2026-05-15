@@ -1,0 +1,18 @@
+{
+  "name": "webbridge",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Browser automation toolkit: Chrome extension + local daemon + AI tool skills",
+  "scripts": {
+    "build": "pnpm -r build",
+    "dev:daemon": "pnpm --filter @webbridge/daemon dev",
+    "build:daemon": "pnpm --filter @webbridge/daemon build",
+    "build:extension": "pnpm --filter @webbridge/extension build",
+    "build:shared": "pnpm --filter @webbridge/shared build",
+    "clean": "pnpm -r exec rimraf dist"
+  },
+  "engines": {
+    "node": ">=18.0.0",
+    "pnpm": ">=8.0.0"
+  }
+}
