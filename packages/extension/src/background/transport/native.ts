@@ -16,27 +16,52 @@ export class NativeTransport implements ITransport {
     return this._status;
   }
 
-  async connect(): Promise<void> {
-    if (this._status === "connected") return;
+  connect(): Promise<void> {
+    if (this._status === "connected") return Promise.resolve();
 
     this.setStatus("connecting");
-    try {
-      this.port = chrome.runtime.connectNative(NATIVE_HOST_NAME);
+
+    return new Promise<void>((resolve, reject) => {
+      let settled = false;
+
+      try {
+        this.port = chrome.runtime.connectNative(NATIVE_HOST_NAME);
+      } catch {
+        this.setStatus("disconnected");
+        reject(new Error("Failed to call connectNative"));
+        return;
+      }
+
+      this.port.onDisconnect.addListener(() => {
+        const error = chrome.runtime.lastError?.message;
+        this.port = null;
+        this.setStatus("disconnected");
+
+        if (!settled) {
+          settled = true;
+          reject(new Error(error ?? "Native messaging host disconnected immediately"));
+        }
+      });
 
       this.port.onMessage.addListener((msg: unknown) => {
+        if (!settled) {
+          settled = true;
+          this.setStatus("connected");
+          resolve();
+        }
         this.messageHandlers.forEach((h) => h(msg as BridgeMessage));
       });
 
-      this.port.onDisconnect.addListener(() => {
-        this.port = null;
-        this.setStatus("disconnected");
-      });
-
-      this.setStatus("connected");
-    } catch {
-      this.setStatus("disconnected");
-      throw new Error("Failed to connect via Native Messaging");
-    }
+      // If onDisconnect hasn't fired within 500ms, assume the host is alive
+      // (it connected but hasn't sent a message yet — that's fine)
+      setTimeout(() => {
+        if (!settled && this.port) {
+          settled = true;
+          this.setStatus("connected");
+          resolve();
+        }
+      }, 500);
+    });
   }
 
   disconnect(): void {
