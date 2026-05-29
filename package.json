@@ -1,8 +1,28 @@
 {
   "name": "webbridge",
   "version": "0.1.0",
-  "private": true,
-  "description": "Browser automation toolkit: Chrome extension + local daemon + AI tool skills",
+  "description": "Give AI coding agents control of your real Chrome browser — extension + local daemon + ready-made Skills for Cursor, Claude Code, Codex, and OpenClaw",
+  "keywords": [
+    "browser-automation",
+    "ai-agent",
+    "chrome-extension",
+    "cursor",
+    "claude-code",
+    "codex",
+    "computer-use-agent",
+    "cdp",
+    "web-scraping",
+    "native-messaging"
+  ],
+  "homepage": "https://github.com/kxdds/WebBridge#readme",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/kxdds/WebBridge.git"
+  },
+  "bugs": {
+    "url": "https://github.com/kxdds/WebBridge/issues"
+  },
+  "license": "MIT",
   "scripts": {
     "build": "pnpm -r build",
     "dev:daemon": "pnpm --filter @webbridge/daemon dev",
