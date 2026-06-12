@@ -5,12 +5,30 @@ export async function getActiveTabId(): Promise<number> {
     active: true,
     currentWindow: true,
   });
-  if (!tab?.id) throw new Error("No active tab found");
+  if (tab?.id == null) throw new Error("No active tab found");
   return tab.id;
 }
 
+async function tabExists(tabId: number): Promise<boolean> {
+  try {
+    await chrome.tabs.get(tabId);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 export async function resolveTabId(tabId?: number): Promise<number> {
-  return tabId ?? (await getActiveTabId());
+  if (tabId == null) return getActiveTabId();
+  if (await tabExists(tabId)) return tabId;
+
+  try {
+    return await getActiveTabId();
+  } catch {
+    throw new Error(
+      `Tab ${tabId} is stale or closed, and no active tab is available. Open or select a tab, then retry without tabId or with a current tabId.`
+    );
+  }
 }
 
 export async function ensureAttached(tabId: number): Promise<void> {
