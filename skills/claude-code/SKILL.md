@@ -45,8 +45,11 @@ Content-Type: application/json
 |------|------|-------------|
 | navigate | url, [tabId, waitUntil] | Navigate to URL |
 | screenshot | [tabId, fullPage, format, quality, clip] | Capture screenshot (base64) |
-| evaluate | expression, [tabId, returnByValue] | Run JS in page |
-| snapshot | [tabId, type] | Get DOM or accessibility tree |
+| evaluate | expression, [tabId, returnByValue, maxChars] | Run JS in page; set maxChars for scraping |
+| snapshot | [tabId, type, mode, maxNodes, roles, textIncludes, maxTextLength] | Get DOM or compact accessibility tree |
+| extract_links | [selector, hrefIncludes, textIncludes, limit, maxTextLength] | Token-efficient link extraction |
+| extract_text | [selector(s), includes, around, maxChars, maxMatches, mode] | Token-efficient text/snippet extraction |
+| extract_table | [selector, maxTables, maxRows, maxCols, maxChars] | Token-efficient table/grid extraction |
 
 ### CUA (Visible Cursor)
 All CUA tools animate a visible cursor on the page.
@@ -126,6 +129,24 @@ curl -s -X POST http://127.0.0.1:10087/api/tool \
 ```
 
 ## Workflow Examples
+
+### Token-efficient page reading (recommended for scraping/research)
+
+Prefer `extract_links`, `extract_text`, and `extract_table` over full snapshots or broad `document.body.innerText` dumps.
+
+```bash
+curl -s -X POST http://127.0.0.1:10087/api/tool \
+  -H 'Content-Type: application/json' \
+  -d '{"name":"extract_links","args":{"selector":"main","textIncludes":"details","limit":5,"maxTextLength":120}}'
+
+curl -s -X POST http://127.0.0.1:10087/api/tool \
+  -H 'Content-Type: application/json' \
+  -d '{"name":"extract_text","args":{"selector":"main","includes":["example term"],"around":400,"maxChars":2000}}'
+
+curl -s -X POST http://127.0.0.1:10087/api/tool \
+  -H 'Content-Type: application/json' \
+  -d '{"name":"extract_table","args":{"maxTables":2,"maxRows":20,"maxCols":8,"maxChars":4000}}'
+```
 
 ### DOM CUA (recommended)
 

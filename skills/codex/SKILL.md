@@ -49,8 +49,13 @@ console.log("WebBridge:", status);
 ```js
 await callTool("navigate", { url: "https://example.com" });
 await callTool("screenshot", {});            // .data.data = base64 PNG
-await callTool("evaluate", { expression: "document.title" });
-await callTool("snapshot", { type: "dom" }); // or "accessibility"
+await callTool("evaluate", { expression: "document.title", maxChars: 1000 });
+await callTool("snapshot", { type: "accessibility", mode: "compact", maxNodes: 50 });
+
+// Token-efficient extraction for scraping/research
+await callTool("extract_links", { selector: "main", textIncludes: "details", limit: 5, maxTextLength: 120 });
+await callTool("extract_text", { selector: "main", includes: ["example term"], around: 400, maxChars: 2000 });
+await callTool("extract_table", { maxTables: 2, maxRows: 20, maxCols: 8, maxChars: 4000 });
 ```
 
 ### CUA (Visible Cursor)
@@ -152,6 +157,18 @@ await callTool("finalize_tabs", {
 // "handoff" tabs stay for user follow-up
 // Unlisted agent tabs are closed; claimed user tabs are released
 ```
+
+## Workflow: token-efficient reading (recommended for scraping/research)
+
+Use extraction tools before broad snapshots/evaluate dumps:
+
+```js
+const links = await callTool("extract_links", { selector: "main", textIncludes: "details", limit: 5 });
+const snippets = await callTool("extract_text", { selector: "main", includes: ["example term"], around: 400, maxChars: 2000 });
+const tables = await callTool("extract_table", { maxRows: 20, maxCols: 8, maxChars: 4000 });
+```
+
+Never return full `document.body.innerText` unless explicitly requested; if `evaluate` is necessary, pass `maxChars`.
 
 ## Workflow: DOM CUA (recommended)
 

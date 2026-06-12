@@ -43,8 +43,11 @@ Body: { "name": "<tool>", "args": { ... } }
 |------|--------------|---------------|---------|
 | navigate | url | tabId, waitUntil | {tabId, url} |
 | screenshot | — | tabId, fullPage, format, quality, clip | {tabId, data (base64)} |
-| evaluate | expression | tabId, returnByValue | {tabId, type, value} |
-| snapshot | — | tabId, type | {tabId, html} or {tabId, nodes} |
+| evaluate | expression | tabId, returnByValue, maxChars | {tabId, type, value, truncated?} |
+| snapshot | — | tabId, type, mode, maxNodes, roles, textIncludes, maxTextLength | compact DOM/AX output |
+| extract_links | — | selector, hrefIncludes, textIncludes, limit, maxTextLength | compact links |
+| extract_text | — | selector(s), includes, around, maxChars, maxMatches, mode | compact text/snippets |
+| extract_table | — | selector, maxTables, maxRows, maxCols, maxChars | compact tables/grids |
 
 ### CUA (Visible Cursor)
 | Tool | Required Args | Optional Args | Returns |
@@ -103,6 +106,24 @@ Body: { "name": "<tool>", "args": { ... } }
 | browser_history | — | query, from, to, limit | Search browsing history |
 
 ## Examples
+
+### Token-efficient extraction
+
+Prefer compact extraction tools for page reading/scraping. Avoid full `document.body.innerText` or full DOM snapshots unless explicitly needed.
+
+```bash
+curl -X POST http://127.0.0.1:10087/api/tool \
+  -H 'Content-Type: application/json' \
+  -d '{"name":"extract_links","args":{"selector":"main","textIncludes":"details","limit":5,"maxTextLength":120}}'
+
+curl -X POST http://127.0.0.1:10087/api/tool \
+  -H 'Content-Type: application/json' \
+  -d '{"name":"extract_text","args":{"selector":"main","includes":["example term"],"around":400,"maxChars":2000}}'
+
+curl -X POST http://127.0.0.1:10087/api/tool \
+  -H 'Content-Type: application/json' \
+  -d '{"name":"extract_table","args":{"maxRows":20,"maxCols":8,"maxChars":4000}}'
+```
 
 ### Session lifecycle
 

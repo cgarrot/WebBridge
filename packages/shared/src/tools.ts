@@ -41,6 +41,10 @@ export const TOOL_NAMES = [
   "claim_tab",
   "browser_history",
   "network",
+  // Phase 6: Token-efficient extraction
+  "extract_links",
+  "extract_text",
+  "extract_table",
 ] as const;
 
 export type ToolName = (typeof TOOL_NAMES)[number];
@@ -83,6 +87,8 @@ export interface EvaluateArgs {
   tabId?: number;
   expression: string;
   returnByValue?: boolean;
+  /** Optional response budget. Large string/JSON outputs are returned as compact previews. */
+  maxChars?: number;
 }
 
 export interface SnapshotArgs {
@@ -91,6 +97,9 @@ export interface SnapshotArgs {
   mode?: "full" | "compact";
   maxNodes?: number;
   includeHidden?: boolean;
+  roles?: string[];
+  textIncludes?: string | string[];
+  maxTextLength?: number;
 }
 
 export interface ListTabsArgs {}
@@ -270,6 +279,44 @@ export interface NetworkArgs {
   limit?: number;
 }
 
+export interface ExtractLinksArgs {
+  tabId?: number;
+  selector?: string;
+  hrefIncludes?: string | string[];
+  hrefExcludes?: string | string[];
+  textIncludes?: string | string[];
+  textExcludes?: string | string[];
+  limit?: number;
+  maxTextLength?: number;
+  includeHidden?: boolean;
+  includeHashLinks?: boolean;
+}
+
+export interface ExtractTextArgs {
+  tabId?: number;
+  selector?: string;
+  selectors?: string[];
+  includes?: string | string[];
+  excludes?: string | string[];
+  around?: number;
+  maxChars?: number;
+  maxMatches?: number;
+  mode?: "text" | "snippets";
+  separator?: string;
+}
+
+export interface ExtractTableArgs {
+  tabId?: number;
+  selector?: string;
+  index?: number;
+  maxTables?: number;
+  maxRows?: number;
+  maxCols?: number;
+  maxCellLength?: number;
+  maxChars?: number;
+  includeLinks?: boolean;
+}
+
 export type ToolArgs = {
   navigate: NavigateArgs;
   screenshot: ScreenshotArgs;
@@ -307,4 +354,7 @@ export type ToolArgs = {
   claim_tab: ClaimTabArgs;
   browser_history: BrowserHistoryArgs;
   network: NetworkArgs;
+  extract_links: ExtractLinksArgs;
+  extract_text: ExtractTextArgs;
+  extract_table: ExtractTableArgs;
 };

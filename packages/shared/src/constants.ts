@@ -1,6 +1,6 @@
 export const NATIVE_HOST_NAME = "com.webbridge.host";
 
-export const DEFAULT_WS_PORT = 10086;
+export const DEFAULT_WS_PORT = 10088;
 export const DEFAULT_WS_HOST = "127.0.0.1";
 export const DEFAULT_HTTP_PORT = 10087;
 

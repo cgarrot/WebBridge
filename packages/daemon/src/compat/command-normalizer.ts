@@ -37,6 +37,9 @@ const BROWSER_TOOL_ALIASES: Record<string, string> = {
   browser_wait_for: "wait_for",
   browser_history: "browser_history",
   browser_network: "network",
+  browser_extract_links: "extract_links",
+  browser_extract_text: "extract_text",
+  browser_extract_table: "extract_table",
 };
 
 const TOOL_ALIASES: Record<string, string> = {
@@ -47,6 +50,9 @@ const TOOL_ALIASES: Record<string, string> = {
   select_tab: "switch_tab",
   get_tab: "get_tab_info",
   pdf: "save_as_pdf",
+  links: "extract_links",
+  extract: "extract_text",
+  table: "extract_table",
 };
 
 export function normalizeCommandBody(body: unknown): NormalizedCommand {

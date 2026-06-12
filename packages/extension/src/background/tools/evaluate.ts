@@ -11,6 +11,7 @@ export class EvaluateTool extends BaseTool {
       tabId: rawTabId,
       expression,
       returnByValue = true,
+      maxChars,
     } = args as unknown as EvaluateArgs;
 
     if (!expression) throw new Error("evaluate: expression is required");
@@ -30,10 +31,33 @@ export class EvaluateTool extends BaseTool {
       throw new Error(`JS error: ${result.exceptionDetails.text}`);
     }
 
+    const value = result.result.value ?? result.result.description;
+    if (typeof maxChars === "number" && Number.isFinite(maxChars) && maxChars > 0) {
+      const bounded = boundValue(value, Math.max(100, Math.min(100_000, Math.floor(maxChars))));
+      return {
+        tabId,
+        type: result.result.type,
+        value: bounded.value,
+        chars: bounded.chars,
+        truncated: bounded.truncated,
+      };
+    }
+
     return {
       tabId,
       type: result.result.type,
-      value: result.result.value ?? result.result.description,
+      value,
     };
   }
+}
+
+function boundValue(value: unknown, maxChars: number): { value: unknown; chars: number; truncated: boolean } {
+  const raw = typeof value === "string" ? value : JSON.stringify(value);
+  if (raw === undefined) return { value, chars: 0, truncated: false };
+  if (raw.length <= maxChars) return { value, chars: raw.length, truncated: false };
+  return {
+    value: raw.slice(0, Math.max(0, maxChars - 1)) + "…",
+    chars: raw.length,
+    truncated: true,
+  };
 }

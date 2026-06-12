@@ -26,6 +26,7 @@ import { ConsoleLogsTool } from "./console-logs.js";
 import { WaitForTool } from "./wait-for.js";
 import { ElementInfoTool } from "./element-info.js";
 import { NetworkTool } from "./network.js";
+import { ExtractLinksTool, ExtractTextTool, ExtractTableTool } from "./extract.js";
 // Phase 5: Session & Tab Group UX
 import { NameSessionTool, FinalizeTabsTool, ClaimTabTool, BrowserHistoryTool } from "./session-tools.js";
 
@@ -67,6 +68,9 @@ export function registerAllTools(): void {
   toolRegistry.register(new WaitForTool());
   toolRegistry.register(new ElementInfoTool());
   toolRegistry.register(new NetworkTool());
+  toolRegistry.register(new ExtractLinksTool());
+  toolRegistry.register(new ExtractTextTool());
+  toolRegistry.register(new ExtractTableTool());
   // Session & Tab Group UX
   toolRegistry.register(new NameSessionTool());
   toolRegistry.register(new FinalizeTabsTool());

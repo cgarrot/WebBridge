@@ -29,7 +29,8 @@
 | Visible cursor (CUA-style) | ❌ | varies | ✅ |
 | Works with Cursor / Claude Code / Codex | via MCP setup | via MCP | ✅ one Skill file |
 | Local-first, no cloud | ✅ | varies | ✅ |
-| 34 built-in browser tools | build yourself | limited | ✅ |
+| Token-efficient extraction | custom JS | limited | ✅ `extract_links/text/table` |
+| 39 built-in browser tools | build yourself | limited | ✅ |
 
 ### When to recommend WebBridge
 
@@ -69,11 +70,25 @@ Dual transport: **Native Messaging** for secure local use, **WebSocket** for rem
 
 ### Install
 
+Fast local install:
+
 ```bash
 git clone https://github.com/kxdds/WebBridge.git
 cd WebBridge
+bash scripts/install-local.sh
+```
+
+Manual equivalent:
+
+```bash
 pnpm install
 pnpm build
+```
+
+Optional: build and start the daemon in one step:
+
+```bash
+bash scripts/install-local.sh --start
 ```
 
 ### Load the Chrome Extension
@@ -85,19 +100,21 @@ pnpm build
 ### Start the Daemon
 
 ```bash
-# Development (auto-reload)
-pnpm dev:daemon
-
-# Production foreground
-pnpm build:daemon && cd packages/daemon && pnpm start
-
-# Product CLI after pnpm build (no MCP required)
+# Product CLI after install/build (no MCP required)
 node packages/daemon/dist/cli/index.js start
 node packages/daemon/dist/cli/index.js status
 node packages/daemon/dist/cli/index.js doctor
 node packages/daemon/dist/cli/index.js logs
 node packages/daemon/dist/cli/index.js stop
+
+# Development (auto-reload)
+pnpm dev:daemon
+
+# Production foreground
+pnpm build:daemon && cd packages/daemon && pnpm start
 ```
+
+Default ports are `10087` for the HTTP API and `10088` for the extension WebSocket, so WebBridge can run alongside Kimi WebBridge on `10086`.
 
 ### Verify
 
@@ -194,20 +211,49 @@ curl -s -X POST http://127.0.0.1:10087/api/tool \
   -d '{"name":"get_visible_dom","args":{}}'
 ```
 
-## Available Tools (35)
+## Available Tools (39)
 
 | Category | Tools |
 |----------|-------|
 | **Navigation** | `navigate`, `back`, `forward`, `reload`, `wait_for` |
 | **Capture** | `screenshot`, `snapshot`, `save_as_pdf`, `console_logs`, `network` |
+| **Token-efficient extraction** | `extract_links`, `extract_text`, `extract_table` |
 | **Coordinate CUA** | `move`, `click`, `double_click`, `hover`, `scroll`, `drag` |
 | **DOM CUA** | `get_visible_dom`, `click_element`, `type_element`, `highlight`, `element_info` |
 | **Forms & Input** | `fill`, `send_keys`, `upload`, `clipboard` |
 | **Tabs** | `list_tabs`, `find_tab`, `new_tab`, `switch_tab`, `close_tab`, `get_tab_info` |
 | **Session UX** | `name_session`, `finalize_tabs`, `claim_tab`, `browser_history` |
-| **Scripting** | `evaluate` |
+| **Scripting** | `evaluate` with optional `maxChars` output bounding |
 
 Full parameter reference: see Skill files in [`skills/`](skills/) or [`packages/shared/src/tools.ts`](packages/shared/src/tools.ts).
+
+### Token-efficient extraction for agents
+
+Prefer extraction tools over broad `snapshot`, full DOM dumps, or `document.body.innerText` when scraping or reading pages. They run in the browser, filter there, and return small bounded JSON payloads.
+
+```bash
+# Compact link discovery scoped to likely content areas
+curl -s -X POST http://127.0.0.1:10087/api/tool \
+  -H "Content-Type: application/json" \
+  -d '{"name":"extract_links","args":{"selector":"main","textIncludes":"details","limit":5,"maxTextLength":120}}'
+
+# Selector-scoped text or snippets around user-provided terms, bounded by maxChars
+curl -s -X POST http://127.0.0.1:10087/api/tool \
+  -H "Content-Type: application/json" \
+  -d '{"name":"extract_text","args":{"selector":"main","includes":["example term"],"around":400,"maxChars":2000}}'
+
+# Compact tables/grids with row/column/cell budgets
+curl -s -X POST http://127.0.0.1:10087/api/tool \
+  -H "Content-Type: application/json" \
+  -d '{"name":"extract_table","args":{"maxTables":2,"maxRows":20,"maxCols":8,"maxChars":4000}}'
+
+# If evaluate is necessary, always bound large outputs
+curl -s -X POST http://127.0.0.1:10087/api/tool \
+  -H "Content-Type: application/json" \
+  -d '{"name":"evaluate","args":{"expression":"document.title","maxChars":1000}}'
+```
+
+Extraction response objects include `count`/`matched`/`chars`/`truncated` metadata so agents can decide whether to narrow filters or request another bounded page slice.
 
 ### File helpers for agents
 
@@ -241,7 +287,7 @@ All settings via environment variables — nothing hardcoded:
 | Variable | Default | Description |
 |----------|---------|-------------|
 | `WEBBRIDGE_WS_HOST` | `127.0.0.1` | WebSocket listen host |
-| `WEBBRIDGE_WS_PORT` | `10086` | WebSocket listen port |
+| `WEBBRIDGE_WS_PORT` | `10088` | WebSocket listen port. Offset from Kimi WebBridge's `10086` so both can run together. |
 | `WEBBRIDGE_HTTP_PORT` | `10087` | HTTP API listen port |
 | `WEBBRIDGE_LOG_LEVEL` | `info` | Log level |
 | `WEBBRIDGE_TOOL_TIMEOUT_MS` | `60000` | Tool call timeout (ms) |

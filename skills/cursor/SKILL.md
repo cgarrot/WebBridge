@@ -58,8 +58,11 @@ Response on error: `{"error": "message"}` or `{"ok":false,"error":"message"}`
 |------|--------------|---------------|-------------|
 | navigate | url | tabId, newTab, group_title, waitUntil | Navigate to URL |
 | screenshot | — | tabId, fullPage, format, quality, clip | Capture page screenshot (base64; prefer helper script) |
-| evaluate | expression | tabId, returnByValue | Run JS in page context; disabled by default until `/config` enables it |
-| snapshot | — | tabId, type, mode, maxNodes | Get DOM HTML or compact accessibility tree with `@e` refs |
+| evaluate | expression | tabId, returnByValue, maxChars | Run JS in page context; disabled by default; always set maxChars for scraping |
+| snapshot | — | tabId, type, mode, maxNodes, roles, textIncludes, maxTextLength | Get DOM HTML or compact accessibility tree with `@e` refs |
+| extract_links | — | tabId, selector, hrefIncludes, textIncludes, limit, maxTextLength | Token-efficient link extraction |
+| extract_text | — | tabId, selector(s), includes, around, maxChars, maxMatches, mode | Token-efficient scoped text/snippet extraction |
+| extract_table | — | tabId, selector, maxTables, maxRows, maxCols, maxCellLength, maxChars | Token-efficient table/grid extraction |
 
 ### CUA (Coordinate-based, Visible Cursor)
 | Tool | Required Args | Optional Args | Description |
@@ -129,6 +132,20 @@ Response on error: `{"error": "message"}` or `{"ok":false,"error":"message"}`
 ```
 
 ## Workflow Patterns
+
+### Token-efficient reading workflow (preferred for scraping/research)
+Never dump full `document.body.innerText` or a full DOM snapshot unless explicitly needed. Prefer these compact tools:
+
+```json
+// 1. Find relevant links from a scoped content area
+{"name":"extract_links","args":{"selector":"main","textIncludes":"details","limit":5,"maxTextLength":120}}
+// 2. Extract snippets around user-provided terms from a scoped area
+{"name":"extract_text","args":{"selector":"main","includes":["example term"],"around":400,"maxChars":2000}}
+// 3. Extract tables with strict row/column/cell budgets
+{"name":"extract_table","args":{"maxTables":2,"maxRows":20,"maxCols":8,"maxChars":4000}}
+```
+
+Use `snapshot` for interaction/refs (`@e`) and `extract_*` for data. If `evaluate` is necessary, set `maxChars`.
 
 ### DOM CUA workflow (preferred for precision)
 ```json

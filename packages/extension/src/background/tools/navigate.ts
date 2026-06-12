@@ -1,6 +1,6 @@
 import type { NavigateArgs } from "@webbridge/shared";
 import { BaseTool, type ToolContext } from "./base.js";
-import { resolveTabId, waitForPageLoad } from "../../cdp/session.js";
+import { resolveTabId } from "../../cdp/session.js";
 import { sessionManager } from "../session-manager.js";
 
 export class NavigateTool extends BaseTool {
@@ -25,29 +25,23 @@ export class NavigateTool extends BaseTool {
 
     let tabId: number;
     if (newTab) {
-      const tab = await chrome.tabs.create({ url: "about:blank", active: true });
+      const tab = await chrome.tabs.create({ url, active: true });
       if (tab.id === undefined) throw new Error("navigate: failed to create new tab");
       tabId = tab.id;
     } else {
       tabId = await resolveTabId(rawTabId);
+      await chrome.tabs.update(tabId, { url, active: true });
     }
-
-    await ctx.cdp.send(tabId, "Page.enable");
-    await ctx.cdp.send(tabId, "Page.navigate", { url });
 
     if (waitUntil !== "domcontentloaded") {
       try {
-        await waitForPageLoad(tabId);
+        await waitForTabComplete(tabId);
       } catch {
         // timeout is non-fatal for navigation
       }
     }
 
-    const currentUrl = await ctx.cdp.send<{ result: { value: string } }>(
-      tabId,
-      "Runtime.evaluate",
-      { expression: "location.href", returnByValue: true }
-    );
+    const currentTab = await chrome.tabs.get(tabId);
 
     if (!sessionManager.isTracked(tabId)) {
       try {
@@ -59,7 +53,32 @@ export class NavigateTool extends BaseTool {
 
     return {
       tabId,
-      url: currentUrl?.result?.value ?? url,
+      url: currentTab.url ?? url,
+      title: currentTab.title,
     };
   }
+}
+
+function waitForTabComplete(tabId: number, timeoutMs = 30_000): Promise<void> {
+  return new Promise((resolve, reject) => {
+    let done = false;
+    const finish = (error?: Error) => {
+      if (done) return;
+      done = true;
+      clearTimeout(timer);
+      chrome.tabs.onUpdated.removeListener(listener);
+      if (error) reject(error);
+      else resolve();
+    };
+
+    const timer = setTimeout(() => finish(new Error(`Page load timeout after ${timeoutMs}ms`)), timeoutMs);
+    const listener = (updatedTabId: number, changeInfo: chrome.tabs.TabChangeInfo) => {
+      if (updatedTabId === tabId && changeInfo.status === "complete") finish();
+    };
+    chrome.tabs.onUpdated.addListener(listener);
+
+    chrome.tabs.get(tabId).then((tab) => {
+      if (tab.status === "complete") finish();
+    }).catch((error) => finish(error instanceof Error ? error : new Error(String(error))));
+  });
 }
