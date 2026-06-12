@@ -6,7 +6,15 @@ interface ExtensionConnection {
   id: string;
   transport: IDaemonTransport;
   extensionVersion?: string;
+  capabilities?: string[];
   connectedAt: number;
+}
+
+export interface ExtensionConnectionInfo {
+  id: string;
+  extensionVersion?: string;
+  capabilities?: string[];
+  connectedAt: string;
 }
 
 export class ConnectionManager {
@@ -31,6 +39,7 @@ export class ConnectionManager {
     transport.onMessage((msg) => {
       if (msg.type === "hello") {
         conn.extensionVersion = msg.payload.extensionVersion;
+        conn.capabilities = msg.payload.capabilities;
         transport.send({
           type: "hello_ack",
           payload: { daemonVersion: "0.1.0" },
@@ -75,6 +84,15 @@ export class ConnectionManager {
 
   getConnectionCount(): number {
     return this.connections.size;
+  }
+
+  getConnectionInfo(): ExtensionConnectionInfo[] {
+    return [...this.connections.values()].map((conn) => ({
+      id: conn.id,
+      extensionVersion: conn.extensionVersion,
+      capabilities: conn.capabilities,
+      connectedAt: new Date(conn.connectedAt).toISOString(),
+    }));
   }
 
   private startHeartbeat(id: string): void {

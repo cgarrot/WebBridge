@@ -8,3 +8,5 @@ dist/
 Thumbs.db
 coverage/
 .vite/
+.webbridge-data/
+.pi/

@@ -4,6 +4,8 @@ import { ToolRouter } from "./router/tool-router.js";
 import { startWebSocketServer } from "./server/ws-server.js";
 import { startHttpServer } from "./server/http-server.js";
 import { NativeHostTransport } from "./native-host/host.js";
+import { LOG_FILE } from "./runtime/paths.js";
+import { writeRuntimeState } from "./runtime/runtime-state.js";
 
 async function main(): Promise<void> {
   const config = loadConfig();
@@ -22,6 +24,16 @@ async function main(): Promise<void> {
   }
 
   await startHttpServer(config, toolRouter, connectionManager);
+
+  writeRuntimeState({
+    pid: process.pid,
+    host: config.wsHost,
+    httpPort: config.httpPort,
+    wsPort: config.wsPort,
+    startedAt: new Date().toISOString(),
+    rootDir: process.cwd(),
+    logFile: LOG_FILE,
+  });
 
   console.log("[WebBridge Daemon] Ready");
 }

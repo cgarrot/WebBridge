@@ -40,6 +40,7 @@ export const TOOL_NAMES = [
   "finalize_tabs",
   "claim_tab",
   "browser_history",
+  "network",
 ] as const;
 
 export type ToolName = (typeof TOOL_NAMES)[number];
@@ -49,6 +50,9 @@ export type ToolName = (typeof TOOL_NAMES)[number];
 export interface NavigateArgs {
   url: string;
   tabId?: number;
+  newTab?: boolean;
+  group_title?: string;
+  groupTitle?: string;
   waitUntil?: "load" | "domcontentloaded" | "networkidle";
 }
 
@@ -62,8 +66,9 @@ export interface ScreenshotArgs {
 
 export interface ClickArgs {
   tabId?: number;
-  x: number;
-  y: number;
+  x?: number;
+  y?: number;
+  selector?: string;
   button?: "left" | "right" | "middle";
   clickCount?: number;
 }
@@ -83,6 +88,9 @@ export interface EvaluateArgs {
 export interface SnapshotArgs {
   tabId?: number;
   type?: "dom" | "accessibility";
+  mode?: "full" | "compact";
+  maxNodes?: number;
+  includeHidden?: boolean;
 }
 
 export interface ListTabsArgs {}
@@ -253,6 +261,15 @@ export interface BrowserHistoryArgs {
   limit?: number;
 }
 
+export interface NetworkArgs {
+  tabId?: number;
+  cmd?: "start" | "stop" | "list" | "get" | "detail" | "clear";
+  action?: "start" | "stop" | "list" | "get" | "detail" | "clear";
+  filter?: string;
+  requestId?: string;
+  limit?: number;
+}
+
 export type ToolArgs = {
   navigate: NavigateArgs;
   screenshot: ScreenshotArgs;
@@ -289,4 +306,5 @@ export type ToolArgs = {
   finalize_tabs: FinalizeTabsArgs;
   claim_tab: ClaimTabArgs;
   browser_history: BrowserHistoryArgs;
+  network: NetworkArgs;
 };

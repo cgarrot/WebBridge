@@ -18,7 +18,7 @@ Cursor agent calls tools via Shell (curl/node) against the daemon's HTTP endpoin
 Before the first browser operation, verify the daemon is running:
 
 ```bash
-curl -s http://127.0.0.1:10087/api/status
+curl -s http://127.0.0.1:10087/health
 ```
 
 - `connections: 1` → ready to use
@@ -27,36 +27,45 @@ curl -s http://127.0.0.1:10087/api/status
 
 ```bash
 cd <webbridge-project-root>/packages/daemon && pnpm dev
+# or, after pnpm build:
+node <webbridge-project-root>/packages/daemon/dist/cli/index.js start
 ```
 
-Wait 2 seconds, then retry the status check.
+Wait 2 seconds, then retry the status check. Use `node <webbridge-project-root>/packages/daemon/dist/cli/index.js doctor` for diagnostics.
 
 ## Calling Tools
 
-Single endpoint for all operations:
+Native endpoint for operations:
 
 ```bash
 curl -s -X POST http://127.0.0.1:10087/api/tool -H "Content-Type: application/json" -d "{\"name\":\"TOOL_NAME\",\"args\":{...}}"
 ```
 
-Response on success: `{"data": {...}}`
-Response on error: `{"error": "message"}`
+Kimi/OpenBridge-compatible endpoint, also available without MCP:
+
+```bash
+curl -s -X POST http://127.0.0.1:10087/command -H "Content-Type: application/json" -d "{\"action\":\"navigate\",\"session\":\"research\",\"args\":{\"url\":\"https://example.com\",\"newTab\":true}}"
+```
+
+Response on native success: `{"data": {...}}`
+Response on compat success: `{"ok": true, "data": {...}}`
+Response on error: `{"error": "message"}` or `{"ok":false,"error":"message"}`
 
 ## Tool Reference
 
 ### Navigation & Content
 | Tool | Required Args | Optional Args | Description |
 |------|--------------|---------------|-------------|
-| navigate | url | tabId, waitUntil | Navigate to URL |
-| screenshot | — | tabId, fullPage, format, quality, clip | Capture page screenshot (base64) |
-| evaluate | expression | tabId, returnByValue | Run JS in page context |
-| snapshot | — | tabId, type | Get DOM HTML or accessibility tree |
+| navigate | url | tabId, newTab, group_title, waitUntil | Navigate to URL |
+| screenshot | — | tabId, fullPage, format, quality, clip | Capture page screenshot (base64; prefer helper script) |
+| evaluate | expression | tabId, returnByValue | Run JS in page context; disabled by default until `/config` enables it |
+| snapshot | — | tabId, type, mode, maxNodes | Get DOM HTML or compact accessibility tree with `@e` refs |
 
 ### CUA (Coordinate-based, Visible Cursor)
 | Tool | Required Args | Optional Args | Description |
 |------|--------------|---------------|-------------|
 | move | x, y | tabId | Move visible cursor to position |
-| click | x, y | tabId, button, clickCount | Click with cursor animation |
+| click | x/y or selector | tabId, button, clickCount | Click with cursor animation; selector may be CSS or latest snapshot `@e` ref |
 | double_click | x, y | tabId, button | Double-click |
 | hover | x, y | tabId, duration | Hover (triggers CSS :hover) |
 | scroll | x, y | tabId, deltaX, deltaY | Scroll at position |
@@ -96,6 +105,7 @@ Response on error: `{"error": "message"}`
 | clipboard | action | tabId, text | Read/write clipboard |
 | console_logs | — | tabId, levels, filter, limit | Get console output |
 | wait_for | type | tabId, value, timeoutMs | Wait for condition |
+| network | cmd/action | tabId, filter, requestId, limit | Capture/list/detail network requests |
 | save_as_pdf | — | tabId, landscape, printBackground | Export PDF |
 | upload | selector, filePaths | tabId | Upload files |
 
@@ -138,6 +148,14 @@ Response on error: `{"error": "message"}`
 {"name":"click","args":{"x":200,"y":300}}
 // 3. Scroll down
 {"name":"scroll","args":{"x":400,"y":300,"deltaY":-500}}
+```
+
+### Screenshot/PDF file helpers
+Prefer helper scripts over raw screenshot/PDF API responses when an image or PDF is needed. They save base64 output to disk and print compact JSON metadata:
+
+```bash
+bash scripts/screenshot.sh -o /tmp/webbridge-page.png
+bash scripts/save-pdf.sh -o /tmp/webbridge-page.pdf
 ```
 
 ## Error Recovery

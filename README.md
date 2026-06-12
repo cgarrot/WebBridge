@@ -88,24 +88,48 @@ pnpm build
 # Development (auto-reload)
 pnpm dev:daemon
 
-# Production
+# Production foreground
 pnpm build:daemon && cd packages/daemon && pnpm start
+
+# Product CLI after pnpm build (no MCP required)
+node packages/daemon/dist/cli/index.js start
+node packages/daemon/dist/cli/index.js status
+node packages/daemon/dist/cli/index.js doctor
+node packages/daemon/dist/cli/index.js logs
+node packages/daemon/dist/cli/index.js stop
 ```
 
 ### Verify
 
 ```bash
+curl http://127.0.0.1:10087/health
+# {"ok":true,"extension_connected":true,"connections":1,"version":"0.1.0",...}
+
 curl http://127.0.0.1:10087/api/status
-# {"status":"ok","connections":1,"version":"0.1.0"}
+# backward-compatible health/status alias
 ```
 
-Try navigating:
+Try navigating with the native API:
 
 ```bash
 curl -s -X POST http://127.0.0.1:10087/api/tool \
   -H "Content-Type: application/json" \
   -d '{"name":"navigate","args":{"url":"https://example.com"}}'
 ```
+
+Or use the Kimi/OpenBridge-compatible command facade:
+
+```bash
+curl -s -X POST http://127.0.0.1:10087/command \
+  -H "Content-Type: application/json" \
+  -d '{"action":"navigate","session":"research","args":{"url":"https://example.com","newTab":true}}'
+
+curl -s -X POST http://127.0.0.1:10087/command \
+  -H "Content-Type: application/json" \
+  -d '{"toolName":"browser_list_tabs","args":{}}'
+```
+
+Runtime state is written to `.webbridge-data/runtime.json` for scripts and agents.
 
 ### Native Messaging (optional)
 
@@ -132,7 +156,21 @@ After installing the Skill, tell your agent:
 
 > "Use WebBridge to control my Chrome browser."
 
-The agent will call `http://127.0.0.1:10087/api/tool` with tool names and JSON args.
+The agent can call `http://127.0.0.1:10087/api/tool` with native tool names, or `http://127.0.0.1:10087/command` with Kimi/OpenBridge-style `action` or `toolName` payloads. No MCP server is required.
+
+Safety controls:
+
+```bash
+# Pause mutating browser control; read-only tools still work
+curl -s -X POST http://127.0.0.1:10087/config \
+  -H "Content-Type: application/json" \
+  -d '{"paused":true}'
+
+# evaluate is disabled by default; enable only when explicitly needed
+curl -s -X POST http://127.0.0.1:10087/config \
+  -H "Content-Type: application/json" \
+  -d '{"evaluate_enabled":true}'
+```
 
 ### Example Agent Workflow
 
@@ -156,12 +194,12 @@ curl -s -X POST http://127.0.0.1:10087/api/tool \
   -d '{"name":"get_visible_dom","args":{}}'
 ```
 
-## Available Tools (34)
+## Available Tools (35)
 
 | Category | Tools |
 |----------|-------|
 | **Navigation** | `navigate`, `back`, `forward`, `reload`, `wait_for` |
-| **Capture** | `screenshot`, `snapshot`, `save_as_pdf`, `console_logs` |
+| **Capture** | `screenshot`, `snapshot`, `save_as_pdf`, `console_logs`, `network` |
 | **Coordinate CUA** | `move`, `click`, `double_click`, `hover`, `scroll`, `drag` |
 | **DOM CUA** | `get_visible_dom`, `click_element`, `type_element`, `highlight`, `element_info` |
 | **Forms & Input** | `fill`, `send_keys`, `upload`, `clipboard` |
@@ -170,6 +208,18 @@ curl -s -X POST http://127.0.0.1:10087/api/tool \
 | **Scripting** | `evaluate` |
 
 Full parameter reference: see Skill files in [`skills/`](skills/) or [`packages/shared/src/tools.ts`](packages/shared/src/tools.ts).
+
+### File helpers for agents
+
+Avoid pasting large base64 screenshots/PDF data into an agent context. Use the helper scripts instead:
+
+```bash
+bash scripts/screenshot.sh                 # writes /tmp/webbridge-screenshots/*.png and prints JSON metadata
+bash scripts/screenshot.sh -o /tmp/page.png
+bash scripts/save-pdf.sh -o /tmp/page.pdf
+```
+
+The helpers read `.webbridge-data/runtime.json` when available, call the local HTTP API, decode the returned base64, and print only the saved file path/size.
 
 ## Project Structure
 

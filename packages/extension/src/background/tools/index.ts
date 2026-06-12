@@ -25,6 +25,7 @@ import { ClipboardTool } from "./clipboard.js";
 import { ConsoleLogsTool } from "./console-logs.js";
 import { WaitForTool } from "./wait-for.js";
 import { ElementInfoTool } from "./element-info.js";
+import { NetworkTool } from "./network.js";
 // Phase 5: Session & Tab Group UX
 import { NameSessionTool, FinalizeTabsTool, ClaimTabTool, BrowserHistoryTool } from "./session-tools.js";
 
@@ -65,6 +66,7 @@ export function registerAllTools(): void {
   toolRegistry.register(new ConsoleLogsTool());
   toolRegistry.register(new WaitForTool());
   toolRegistry.register(new ElementInfoTool());
+  toolRegistry.register(new NetworkTool());
   // Session & Tab Group UX
   toolRegistry.register(new NameSessionTool());
   toolRegistry.register(new FinalizeTabsTool());

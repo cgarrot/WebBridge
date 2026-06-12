@@ -29,6 +29,7 @@
     "build:daemon": "pnpm --filter @webbridge/daemon build",
     "build:extension": "pnpm --filter @webbridge/extension build",
     "build:shared": "pnpm --filter @webbridge/shared build",
+    "check": "node scripts/check.js",
     "clean": "pnpm -r exec rimraf dist"
   },
   "pnpm": {

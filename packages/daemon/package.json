@@ -5,6 +5,7 @@
   "type": "module",
   "main": "dist/index.js",
   "bin": {
+    "webbridge": "dist/cli/index.js",
     "webbridge-daemon": "dist/index.js"
   },
   "scripts": {
