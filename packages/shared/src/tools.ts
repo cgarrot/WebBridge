@@ -45,6 +45,8 @@ export const TOOL_NAMES = [
   "extract_links",
   "extract_text",
   "extract_table",
+  // Extension lifecycle
+  "reload_extension",
 ] as const;
 
 export type ToolName = (typeof TOOL_NAMES)[number];
@@ -235,7 +237,8 @@ export interface ConsoleLogsArgs {
 
 export interface WaitForArgs {
   tabId?: number;
-  type: "selector" | "navigation" | "load" | "network_idle";
+  /** Defaults to "load" for ergonomic waits after navigation. */
+  type?: "selector" | "navigation" | "load" | "network_idle";
   value?: string;
   timeoutMs?: number;
 }
@@ -317,6 +320,11 @@ export interface ExtractTableArgs {
   includeLinks?: boolean;
 }
 
+export interface ReloadExtensionArgs {
+  /** Delay before reloading, allowing the tool response to be sent first. */
+  delayMs?: number;
+}
+
 export type ToolArgs = {
   navigate: NavigateArgs;
   screenshot: ScreenshotArgs;
@@ -357,4 +365,5 @@ export type ToolArgs = {
   extract_links: ExtractLinksArgs;
   extract_text: ExtractTextArgs;
   extract_table: ExtractTableArgs;
+  reload_extension: ReloadExtensionArgs;
 };

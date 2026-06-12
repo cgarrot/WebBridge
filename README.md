@@ -91,6 +91,34 @@ Optional: build and start the daemon in one step:
 bash scripts/install-local.sh --start
 ```
 
+### One-command local launch
+
+After building, use the launcher to start the daemon, open Chrome, and wait for the extension connection:
+
+```bash
+bash scripts/launch-local.sh
+```
+
+Open a specific URL:
+
+```bash
+bash scripts/launch-local.sh --url https://example.com
+```
+
+Guaranteed dev launch with an isolated Chrome profile and auto-loaded unpacked extension:
+
+```bash
+bash scripts/launch-local.sh --dev-profile --url https://example.com
+```
+
+> Chrome limitation: a script cannot silently install or reload an unpacked extension in your normal Chrome profile. For your normal logged-in profile, load/reload the extension manually in `chrome://extensions`. The `--dev-profile` mode can auto-load the extension, but it uses a separate profile without your normal cookies/logins.
+
+If the extension is already connected and supports it, ask it to reload from disk:
+
+```bash
+bash scripts/launch-local.sh --reload-extension
+```
+
 ### Load the Chrome Extension
 
 1. Open `chrome://extensions`
@@ -211,7 +239,7 @@ curl -s -X POST http://127.0.0.1:10087/api/tool \
   -d '{"name":"get_visible_dom","args":{}}'
 ```
 
-## Available Tools (39)
+## Available Tools (40)
 
 | Category | Tools |
 |----------|-------|
@@ -223,6 +251,7 @@ curl -s -X POST http://127.0.0.1:10087/api/tool \
 | **Forms & Input** | `fill`, `send_keys`, `upload`, `clipboard` |
 | **Tabs** | `list_tabs`, `find_tab`, `new_tab`, `switch_tab`, `close_tab`, `get_tab_info` |
 | **Session UX** | `name_session`, `finalize_tabs`, `claim_tab`, `browser_history` |
+| **Lifecycle** | `reload_extension` |
 | **Scripting** | `evaluate` with optional `maxChars` output bounding |
 
 Full parameter reference: see Skill files in [`skills/`](skills/) or [`packages/shared/src/tools.ts`](packages/shared/src/tools.ts).

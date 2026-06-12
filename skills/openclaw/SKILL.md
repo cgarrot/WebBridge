@@ -92,7 +92,8 @@ Body: { "name": "<tool>", "args": { ... } }
 |------|--------------|---------------|---------|
 | clipboard | action | text, tabId | {action, text/length} |
 | console_logs | — | tabId, levels, filter, limit | {count, entries} |
-| wait_for | type | value, tabId, timeoutMs | {type, fired/found} |
+| wait_for | — | type, value, tabId, timeoutMs | {type, complete/fired/found}; defaults to type=load |
+| reload_extension | — | delayMs | {reloading, delayMs} |
 | save_as_pdf | — | tabId, landscape, printBackground | {tabId, data (base64)} |
 | upload | selector, filePaths | tabId | {tabId, filesUploaded} |
 

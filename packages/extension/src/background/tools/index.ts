@@ -27,6 +27,7 @@ import { WaitForTool } from "./wait-for.js";
 import { ElementInfoTool } from "./element-info.js";
 import { NetworkTool } from "./network.js";
 import { ExtractLinksTool, ExtractTextTool, ExtractTableTool } from "./extract.js";
+import { ReloadExtensionTool } from "./extension-lifecycle.js";
 // Phase 5: Session & Tab Group UX
 import { NameSessionTool, FinalizeTabsTool, ClaimTabTool, BrowserHistoryTool } from "./session-tools.js";
 
@@ -71,6 +72,7 @@ export function registerAllTools(): void {
   toolRegistry.register(new ExtractLinksTool());
   toolRegistry.register(new ExtractTextTool());
   toolRegistry.register(new ExtractTableTool());
+  toolRegistry.register(new ReloadExtensionTool());
   // Session & Tab Group UX
   toolRegistry.register(new NameSessionTool());
   toolRegistry.register(new FinalizeTabsTool());

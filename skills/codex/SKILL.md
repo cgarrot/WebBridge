@@ -120,8 +120,11 @@ const logs = await callTool("console_logs", { levels: ["error"], limit: 10 });
 
 // Wait for conditions
 await callTool("wait_for", { type: "selector", value: "#results" });
-await callTool("wait_for", { type: "load" });
+await callTool("wait_for", {}); // defaults to type="load"
 await callTool("wait_for", { type: "network_idle" });
+
+// Extension lifecycle, when already connected
+await callTool("reload_extension", { delayMs: 250 });
 
 // PDF export
 const pdf = await callTool("save_as_pdf", {});
@@ -187,7 +190,7 @@ await callTool("type_element", { nodeId: "n5", text: "search query" });
 await callTool("send_keys", { keys: ["Enter"] });
 
 // 5. Wait and screenshot
-await callTool("wait_for", { type: "load" });
+await callTool("wait_for", {}); // defaults to load
 const shot = await callTool("screenshot", {});
 const img = { toBase64: () => shot.data.data };
 await display(img);

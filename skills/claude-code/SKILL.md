@@ -98,7 +98,8 @@ Use `get_visible_dom` to get IDs, then interact by ID.
 |------|------|-------------|
 | clipboard | action, [text, tabId] | Read/write clipboard |
 | console_logs | [tabId, levels, filter, limit] | Get console logs |
-| wait_for | type, [value, tabId, timeoutMs] | Wait for condition |
+| wait_for | [type, value, tabId, timeoutMs] | Wait for condition; defaults to type=load |
+| reload_extension | [delayMs] | Reload WebBridge extension from disk when already connected |
 | save_as_pdf | [tabId, landscape, printBackground] | Export PDF |
 | upload | selector, filePaths, [tabId] | Upload files |
 
@@ -176,7 +177,7 @@ curl -s -X POST http://127.0.0.1:10087/api/tool \
 
 curl -s -X POST http://127.0.0.1:10087/api/tool \
   -H 'Content-Type: application/json' \
-  -d '{"name":"wait_for","args":{"type":"load"}}'
+  -d '{"name":"wait_for","args":{}}'
 
 curl -s -X POST http://127.0.0.1:10087/api/tool \
   -H 'Content-Type: application/json' \

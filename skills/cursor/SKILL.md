@@ -107,8 +107,9 @@ Response on error: `{"error": "message"}` or `{"ok":false,"error":"message"}`
 |------|--------------|---------------|-------------|
 | clipboard | action | tabId, text | Read/write clipboard |
 | console_logs | — | tabId, levels, filter, limit | Get console output |
-| wait_for | type | tabId, value, timeoutMs | Wait for condition |
+| wait_for | — | tabId, type, value, timeoutMs | Wait for condition; defaults to type=load |
 | network | cmd/action | tabId, filter, requestId, limit | Capture/list/detail network requests |
+| reload_extension | — | delayMs | Reload WebBridge extension from disk when already connected |
 | save_as_pdf | — | tabId, landscape, printBackground | Export PDF |
 | upload | selector, filePaths | tabId | Upload files |
 

@@ -9,12 +9,10 @@ export class WaitForTool extends BaseTool {
   async execute(args: Record<string, unknown>, ctx: ToolContext): Promise<unknown> {
     const {
       tabId: rawTabId,
-      type,
+      type = "load",
       value,
       timeoutMs = 10_000,
     } = args as unknown as WaitForArgs;
-
-    if (!type) throw new Error("wait_for: type is required");
 
     const tabId = await resolveTabId(rawTabId);
 
@@ -24,7 +22,7 @@ export class WaitForTool extends BaseTool {
       case "navigation":
         return this.waitForEvent(tabId, "Page.frameNavigated", timeoutMs, ctx);
       case "load":
-        return this.waitForEvent(tabId, "Page.loadEventFired", timeoutMs, ctx);
+        return this.waitForTabLoad(tabId, timeoutMs);
       case "network_idle":
         return this.waitForNetworkIdle(tabId, timeoutMs, ctx);
       default:
@@ -52,6 +50,29 @@ export class WaitForTool extends BaseTool {
       await new Promise((r) => setTimeout(r, 200));
     }
     throw new Error(`wait_for: selector "${selector}" not found within ${timeoutMs}ms`);
+  }
+
+  private waitForTabLoad(tabId: number, timeoutMs: number): Promise<unknown> {
+    return new Promise((resolve, reject) => {
+      let done = false;
+      const finish = (error?: Error) => {
+        if (done) return;
+        done = true;
+        clearTimeout(timer);
+        chrome.tabs.onUpdated.removeListener(listener);
+        if (error) reject(error);
+        else resolve({ tabId, type: "load", complete: true });
+      };
+
+      const timer = setTimeout(() => finish(new Error(`wait_for: load timeout after ${timeoutMs}ms`)), timeoutMs);
+      const listener = (updatedTabId: number, changeInfo: chrome.tabs.TabChangeInfo) => {
+        if (updatedTabId === tabId && changeInfo.status === "complete") finish();
+      };
+      chrome.tabs.onUpdated.addListener(listener);
+      chrome.tabs.get(tabId).then((tab) => {
+        if (tab.status === "complete") finish();
+      }).catch((error) => finish(error instanceof Error ? error : new Error(String(error))));
+    });
   }
 
   private waitForEvent(
