@@ -60,7 +60,7 @@ export class BrowserHistoryTool extends BaseTool {
   async execute(args: Record<string, unknown>, _ctx: ToolContext): Promise<unknown> {
     const { query, from, to, limit = 50 } = args as unknown as BrowserHistoryArgs;
 
-    const searchParams: chrome.history.SearchQuery = {
+    const searchParams: Parameters<typeof chrome.history.search>[0] = {
       text: query ?? "",
       maxResults: Math.min(limit, 200),
     };

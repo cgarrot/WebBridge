@@ -1,5 +1,24 @@
 import { CDP_PROTOCOL_VERSION } from "@webbridge/shared";
 
+const BROWSER_INTERNAL_PROTOCOLS = new Set([
+  "chrome:",
+  "chrome-extension:",
+  "devtools:",
+  "edge:",
+  "moz-extension:",
+  "opera:",
+  "vivaldi:",
+]);
+
+function isBrowserInternalUrl(url: string | undefined): boolean {
+  if (!url) return false;
+  try {
+    return BROWSER_INTERNAL_PROTOCOLS.has(new URL(url).protocol);
+  } catch {
+    return /^(chrome|chrome-extension|devtools|edge|moz-extension|opera|vivaldi):/i.test(url);
+  }
+}
+
 export class CDPBridge {
   private attached = new Set<number>();
 
@@ -35,6 +54,15 @@ export class CDPBridge {
           `Close DevTools on that tab and retry.`
         );
       }
+
+      const tab = await chrome.tabs.get(tabId).catch(() => undefined);
+      if (isBrowserInternalUrl(tab?.url)) {
+        throw new Error(
+          `Cannot attach CDP debugger to tab ${tabId} because it has a browser-internal URL (${tab?.url}). ` +
+          `Chrome does not allow debugger access to this page; select or navigate to a normal web page and retry.`
+        );
+      }
+
       throw new Error(`Failed to attach debugger to tab ${tabId}: ${msg}`);
     }
   }

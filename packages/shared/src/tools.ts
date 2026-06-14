@@ -47,6 +47,9 @@ export const TOOL_NAMES = [
   "extract_table",
   // Extension lifecycle
   "reload_extension",
+  // CDP preload support
+  "preload_script",
+  "preload_navigate",
 ] as const;
 
 export type ToolName = (typeof TOOL_NAMES)[number];
@@ -325,6 +328,32 @@ export interface ReloadExtensionArgs {
   delayMs?: number;
 }
 
+export interface PreloadScriptArgs {
+  tabId?: number;
+  source: string;
+  /** Run in an isolated world instead of the main world. Defaults false for page instrumentation compatibility. */
+  isolated?: boolean;
+  /** Register for future navigations. Defaults true; set false for runNow-only CDP snippets. */
+  register?: boolean;
+  /** Also execute the script immediately in the current document via CDP Runtime.evaluate. */
+  runNow?: boolean;
+  /** Optional response budget for runNow result previews. */
+  maxChars?: number;
+}
+
+export interface PreloadNavigateArgs {
+  url: string;
+  source: string;
+  tabId?: number;
+  newTab?: boolean;
+  initialUrl?: string;
+  active?: boolean;
+  group_title?: string;
+  groupTitle?: string;
+  initialWaitMs?: number;
+  urlWaitMs?: number;
+}
+
 export type ToolArgs = {
   navigate: NavigateArgs;
   screenshot: ScreenshotArgs;
@@ -366,4 +395,6 @@ export type ToolArgs = {
   extract_text: ExtractTextArgs;
   extract_table: ExtractTableArgs;
   reload_extension: ReloadExtensionArgs;
+  preload_script: PreloadScriptArgs;
+  preload_navigate: PreloadNavigateArgs;
 };

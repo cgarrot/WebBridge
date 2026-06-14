@@ -28,6 +28,8 @@ import { ElementInfoTool } from "./element-info.js";
 import { NetworkTool } from "./network.js";
 import { ExtractLinksTool, ExtractTextTool, ExtractTableTool } from "./extract.js";
 import { ReloadExtensionTool } from "./extension-lifecycle.js";
+import { PreloadScriptTool } from "./preload-script.js";
+import { PreloadNavigateTool } from "./preload-navigate.js";
 // Phase 5: Session & Tab Group UX
 import { NameSessionTool, FinalizeTabsTool, ClaimTabTool, BrowserHistoryTool } from "./session-tools.js";
 
@@ -73,6 +75,8 @@ export function registerAllTools(): void {
   toolRegistry.register(new ExtractTextTool());
   toolRegistry.register(new ExtractTableTool());
   toolRegistry.register(new ReloadExtensionTool());
+  toolRegistry.register(new PreloadScriptTool());
+  toolRegistry.register(new PreloadNavigateTool());
   // Session & Tab Group UX
   toolRegistry.register(new NameSessionTool());
   toolRegistry.register(new FinalizeTabsTool());
