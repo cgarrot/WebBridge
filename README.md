@@ -62,13 +62,36 @@ Dual transport: **Native Messaging** for secure local use, **WebSocket** for rem
 
 ## Quick Start
 
-### Prerequisites
+### Prebuilt user install (no Node.js/pnpm required)
+
+For non-developer installs, use the GitHub Release installer. It downloads a portable bundle with a bundled Node.js runtime, installs the daemon, configures autostart when supported, and prints the Chrome extension folder to load.
+
+macOS/Linux:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/cgarrot/WebBridge/main/scripts/install-user.sh -o /tmp/install-webbridge.sh
+bash /tmp/install-webbridge.sh
+```
+
+Windows PowerShell:
+
+```powershell
+$script = Join-Path $env:TEMP "install-webbridge.ps1"
+Invoke-WebRequest -Uri "https://raw.githubusercontent.com/cgarrot/WebBridge/main/scripts/install-user.ps1" -OutFile $script
+powershell -ExecutionPolicy Bypass -File $script
+```
+
+Chrome still requires one manual step: open `chrome://extensions`, enable **Developer mode**, click **Load unpacked**, and select the printed `extension` folder.
+
+### Source install prerequisites
+
+Use these only when building from source or developing WebBridge:
 
 - [Node.js](https://nodejs.org/) >= 18
 - [pnpm](https://pnpm.io/) >= 8
 - Google Chrome
 
-### Install
+### Install from source
 
 Fast local install:
 
@@ -123,12 +146,21 @@ bash scripts/launch-local.sh --reload-extension
 
 1. Open `chrome://extensions`
 2. Enable **Developer mode**
-3. Click **Load unpacked** → select `packages/extension/dist`
+3. Click **Load unpacked**
+4. Select the extension folder:
+   - Prebuilt install: `~/.webbridge/WebBridge/extension`
+   - Source install: `packages/extension/dist`
 
 ### Start the Daemon
 
 ```bash
-# Product CLI after install/build (no MCP required)
+# Prebuilt install CLI
+~/.webbridge/WebBridge/bin/webbridge start
+~/.webbridge/WebBridge/bin/webbridge status
+~/.webbridge/WebBridge/bin/webbridge doctor
+~/.webbridge/WebBridge/bin/webbridge stop
+
+# Source/product CLI after install/build (no MCP required)
 node packages/daemon/dist/cli/index.js start
 node packages/daemon/dist/cli/index.js status
 node packages/daemon/dist/cli/index.js doctor
@@ -190,15 +222,15 @@ Update `allowed_origins` in the generated manifest with your extension ID.
 
 ### Agent-assisted install prompt (copy/paste)
 
-Paste this short prompt into Cursor, Claude Code, Codex, OpenCode/OpenClaw, or another coding agent. The agent will fetch the full installer instructions from GitHub.
+Paste this short prompt into Cursor, Claude Code, Codex, OpenCode/OpenClaw, or another coding agent. The agent will fetch the release-first installer instructions from GitHub; normal users should not need Node.js, npm, pnpm, or a local build when a release asset exists.
 
 ```text
-Install WebBridge browser automation for me.
+Install WebBridge browser automation for me from the latest prebuilt GitHub release.
 Fetch and follow the official installer prompt from:
 https://raw.githubusercontent.com/cgarrot/WebBridge/main/docs/agent-install.md
 
 Do not use sudo, delete unrelated files, edit shell profiles, or commit changes unless I explicitly ask.
-When done, tell me where the Skill was installed and the exact Chrome extension folder I must load in chrome://extensions.
+When done, tell me where the Skill was installed, whether autostart was configured, and the exact Chrome extension folder I must load in chrome://extensions.
 ```
 
 Full installer prompt: [`docs/agent-install.md`](docs/agent-install.md)

@@ -9,4 +9,6 @@ Thumbs.db
 coverage/
 .vite/
 .webbridge-data/
+.release/
+.node-runtime/
 .pi/

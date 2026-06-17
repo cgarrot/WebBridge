@@ -14,13 +14,13 @@
     "web-scraping",
     "native-messaging"
   ],
-  "homepage": "https://github.com/kxdds/WebBridge#readme",
+  "homepage": "https://github.com/cgarrot/WebBridge#readme",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/kxdds/WebBridge.git"
+    "url": "git+https://github.com/cgarrot/WebBridge.git"
   },
   "bugs": {
-    "url": "https://github.com/kxdds/WebBridge/issues"
+    "url": "https://github.com/cgarrot/WebBridge/issues"
   },
   "license": "MIT",
   "scripts": {
@@ -30,6 +30,7 @@
     "build:extension": "pnpm --filter @webbridge/extension build",
     "build:shared": "pnpm --filter @webbridge/shared build",
     "check": "node scripts/check.js",
+    "package:release": "node scripts/package-release.mjs",
     "clean": "pnpm -r exec rimraf dist"
   },
   "pnpm": {

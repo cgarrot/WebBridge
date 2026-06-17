@@ -1,0 +1,120 @@
+name: Build release bundles
+
+on:
+  workflow_dispatch:
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: write
+
+jobs:
+  bundle:
+    name: ${{ matrix.target }}
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - target: macos-x64
+            node_platform: darwin
+            node_arch: x64
+            node_ext: tar.gz
+            asset_ext: tar.gz
+          - target: macos-arm64
+            node_platform: darwin
+            node_arch: arm64
+            node_ext: tar.gz
+            asset_ext: tar.gz
+          - target: linux-x64
+            node_platform: linux
+            node_arch: x64
+            node_ext: tar.gz
+            asset_ext: tar.gz
+          - target: linux-arm64
+            node_platform: linux
+            node_arch: arm64
+            node_ext: tar.gz
+            asset_ext: tar.gz
+          - target: windows-x64
+            node_platform: win
+            node_arch: x64
+            node_ext: zip
+            asset_ext: zip
+          - target: windows-arm64
+            node_platform: win
+            node_arch: arm64
+            node_ext: zip
+            asset_ext: zip
+
+    env:
+      NODE_RUNTIME_VERSION: 20.18.1
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js for build
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Enable pnpm
+        run: |
+          corepack enable
+          corepack prepare pnpm@9 --activate
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Build daemon and extension
+        run: pnpm build
+
+      - name: Download Node.js runtime for target
+        id: runtime
+        shell: bash
+        run: |
+          set -euo pipefail
+          runtime="node-v${NODE_RUNTIME_VERSION}-${{ matrix.node_platform }}-${{ matrix.node_arch }}"
+          mkdir -p .node-runtime
+          cd .node-runtime
+          if [[ "${{ matrix.node_ext }}" == "zip" ]]; then
+            curl -fsSLO "https://nodejs.org/dist/v${NODE_RUNTIME_VERSION}/${runtime}.zip"
+            unzip -q "${runtime}.zip"
+          else
+            curl -fsSLO "https://nodejs.org/dist/v${NODE_RUNTIME_VERSION}/${runtime}.tar.gz"
+            tar -xzf "${runtime}.tar.gz"
+          fi
+          echo "dir=.node-runtime/${runtime}" >> "$GITHUB_OUTPUT"
+
+      - name: Create portable WebBridge bundle
+        run: |
+          node scripts/package-release.mjs \
+            --target "${{ matrix.target }}" \
+            --node-runtime "${{ steps.runtime.outputs.dir }}" \
+            --out-dir .release
+
+      - name: Archive bundle
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p .release/assets
+          if [[ "${{ matrix.asset_ext }}" == "zip" ]]; then
+            (cd ".release/${{ matrix.target }}" && zip -qr "../assets/webbridge-${{ matrix.target }}.zip" webbridge)
+          else
+            tar -czf ".release/assets/webbridge-${{ matrix.target }}.tar.gz" -C ".release/${{ matrix.target }}" webbridge
+          fi
+
+      - name: Upload workflow artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: webbridge-${{ matrix.target }}
+          path: .release/assets/webbridge-${{ matrix.target }}.${{ matrix.asset_ext }}
+          if-no-files-found: error
+
+      - name: Attach asset to GitHub Release
+        if: startsWith(github.ref, 'refs/tags/')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: .release/assets/webbridge-${{ matrix.target }}.${{ matrix.asset_ext }}
