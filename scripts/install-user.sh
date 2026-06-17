@@ -230,16 +230,13 @@ fi
 
 cat <<EOF
 
-WebBridge installed.
+✅ WebBridge installed.
 
 Installed at:
   $INSTALL_DIR
 
-Daemon command:
+Daemon status command:
   $INSTALL_DIR/bin/webbridge status
-
-Chrome extension folder to load manually:
-  $INSTALL_DIR/extension
 
 Agent Skill source files:
   $INSTALL_DIR/skills/cursor/SKILL.md
@@ -247,12 +244,37 @@ Agent Skill source files:
   $INSTALL_DIR/skills/codex/SKILL.md
   $INSTALL_DIR/skills/openclaw/SKILL.md
 
-Next Chrome step:
-  1. Open chrome://extensions
-  2. Enable Developer mode
-  3. Click Load unpacked
-  4. Select: $INSTALL_DIR/extension
-  5. Run: $INSTALL_DIR/bin/webbridge status
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+⚠️  One manual Chrome step remains
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Chrome does not let scripts install this unpacked extension automatically.
+Do this once in the Chrome browser you want agents to control:
+
+1. Open Chrome and go to:
+   chrome://extensions
+
+2. Turn on:
+   Developer mode
+
+3. Click:
+   Load unpacked
+
+4. When Chrome asks for a folder, select EXACTLY this folder:
+   $INSTALL_DIR/extension
+
+   Tip: select the folder named "extension" itself.
+   Do NOT select manifest.json or any file inside the folder.
+
+5. Verify connection:
+   $INSTALL_DIR/bin/webbridge status
+
+Expected after loading the extension:
+  Extension: Connected
+
+If you see "Extension: Not connected", reload the extension in chrome://extensions
+or make sure you loaded the folder shown above.
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 EOF
 
 if [[ "$START_DAEMON" -eq 1 ]]; then

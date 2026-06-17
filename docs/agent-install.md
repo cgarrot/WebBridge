@@ -108,26 +108,48 @@ Create parent directories as needed. After copying, print the destination path.
 
 Chrome does not allow a normal script to silently install an unpacked extension into my regular logged-in Chrome profile.
 
-Explain this step clearly:
+At the end, explain this part in very simple user-facing language. Do not just say "load the extension". Show the exact folder path and mention that the user must select the folder, not a file inside it.
 
-1. Open `chrome://extensions`
-2. Enable `Developer mode`
-3. Click `Load unpacked`
-4. Select the installed extension folder:
+Use this wording and replace the path with the actual installed path printed by the installer:
 
-   macOS/Linux:
+```text
+One manual Chrome step remains.
 
-   ```text
-   ~/.webbridge/WebBridge/extension
-   ```
+1. Open Chrome and go to:
+   chrome://extensions
 
-   Windows:
+2. Turn on:
+   Developer mode
 
-   ```text
-   %USERPROFILE%\.webbridge\WebBridge\extension
-   ```
+3. Click:
+   Load unpacked
 
-5. Re-run the status command and confirm the extension is connected.
+4. When Chrome asks for a folder, select EXACTLY this folder:
+   <installed WebBridge path>/extension
+
+   Important: select the folder named "extension" itself.
+   Do NOT select manifest.json or any file inside the folder.
+
+5. Then run:
+   <installed WebBridge path>/bin/webbridge status
+
+Expected after loading the extension:
+   Extension: Connected
+```
+
+Default extension folders:
+
+macOS/Linux:
+
+```text
+~/.webbridge/WebBridge/extension
+```
+
+Windows:
+
+```text
+%USERPROFILE%\.webbridge\WebBridge\extension
+```
 
 ## Verify
 
