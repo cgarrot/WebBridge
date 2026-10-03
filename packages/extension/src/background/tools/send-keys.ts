@@ -2,18 +2,18 @@ import type { SendKeysArgs } from "@webbridge/shared";
 import { BaseTool, type ToolContext } from "./base.js";
 import { resolveTabId } from "../../cdp/session.js";
 
-const SPECIAL_KEYS: Record<string, { key: string; code: string; keyCode: number }> = {
-  Enter: { key: "Enter", code: "Enter", keyCode: 13 },
-  Tab: { key: "Tab", code: "Tab", keyCode: 9 },
-  Escape: { key: "Escape", code: "Escape", keyCode: 27 },
-  Backspace: { key: "Backspace", code: "Backspace", keyCode: 8 },
-  Delete: { key: "Delete", code: "Delete", keyCode: 46 },
-  ArrowUp: { key: "ArrowUp", code: "ArrowUp", keyCode: 38 },
-  ArrowDown: { key: "ArrowDown", code: "ArrowDown", keyCode: 40 },
-  ArrowLeft: { key: "ArrowLeft", code: "ArrowLeft", keyCode: 37 },
-  ArrowRight: { key: "ArrowRight", code: "ArrowRight", keyCode: 39 },
-  Home: { key: "Home", code: "Home", keyCode: 36 },
-  End: { key: "End", code: "End", keyCode: 35 },
+const SPECIAL_KEYS: Record<string, { key: string; code: string; keyCode: number; windowsVirtualKeyCode: number }> = {
+  Enter: { key: "Enter", code: "Enter", keyCode: 13, windowsVirtualKeyCode: 13 },
+  Tab: { key: "Tab", code: "Tab", keyCode: 9, windowsVirtualKeyCode: 9 },
+  Escape: { key: "Escape", code: "Escape", keyCode: 27, windowsVirtualKeyCode: 27 },
+  Backspace: { key: "Backspace", code: "Backspace", keyCode: 8, windowsVirtualKeyCode: 8 },
+  Delete: { key: "Delete", code: "Delete", keyCode: 46, windowsVirtualKeyCode: 46 },
+  ArrowUp: { key: "ArrowUp", code: "ArrowUp", keyCode: 38, windowsVirtualKeyCode: 38 },
+  ArrowDown: { key: "ArrowDown", code: "ArrowDown", keyCode: 40, windowsVirtualKeyCode: 40 },
+  ArrowLeft: { key: "ArrowLeft", code: "ArrowLeft", keyCode: 37, windowsVirtualKeyCode: 37 },
+  ArrowRight: { key: "ArrowRight", code: "ArrowRight", keyCode: 39, windowsVirtualKeyCode: 39 },
+  Home: { key: "Home", code: "Home", keyCode: 36, windowsVirtualKeyCode: 36 },
+  End: { key: "End", code: "End", keyCode: 35, windowsVirtualKeyCode: 35 },
 };
 
 const MODIFIER_FLAGS: Record<string, number> = {

@@ -1,0 +1,27 @@
+{
+  "name": "@webbridge/semantic",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Optional semantic side-feature for the WebBridge daemon: Jev (TypeSafe) fast structured decisions + flow runner. Opt-in via WEBBRIDGE_SEMANTIC_ENABLED=1.",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "scripts": {
+    "build": "tsc",
+    "type-check": "tsc --noEmit",
+    "test": "node --test test/*.test.mjs"
+  },
+  "devDependencies": {
+    "@types/node": "^25.8.0",
+    "typescript": "^5.8.0"
+  },
+  "dependencies": {
+    "@webbridge/shared": "workspace:*"
+  }
+}
