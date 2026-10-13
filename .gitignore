@@ -12,3 +12,11 @@ coverage/
 .release/
 .node-runtime/
 .pi/
+
+# Local agent mesh state (session ids/aliases), never shared
+.mesh/
+
+# Local planning artifacts and internal strategy notes
+plans/
+docs/jev-*.md
+docs/semantic-feature-implementation-plan.md
