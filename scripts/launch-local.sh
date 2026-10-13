@@ -11,6 +11,7 @@ RELOAD_EXTENSION=0
 START_DAEMON=1
 BUILD_IF_MISSING=1
 PROFILE_DIR="$ROOT_DIR/.webbridge-data/chrome-profile"
+CHROME_ARGS=()
 
 usage() {
   cat <<'EOF'
@@ -25,6 +26,10 @@ Options:
                         This guarantees the unpacked extension is loaded, but does
                         NOT reuse your normal Chrome login/session cookies.
   --profile-dir <dir>   Profile directory for --dev-profile
+  --chrome-arg <arg>    Extra Chrome argument; repeatable. Example: --chrome-arg --use-fake-ui-for-media-stream
+  --stage-share-title <title>
+                        Add Chrome tab auto-select flag for Meet Stage sharing:
+                        --auto-select-tab-capture-source-by-title=<title>
   --reload-extension    If already connected, ask the extension to reload from disk
   --no-daemon           Do not start the daemon
   --no-build            Do not auto-build when dist files are missing
@@ -37,6 +42,8 @@ What this can and cannot do:
     reload_extension tool.
   - Cannot silently install/reload an unpacked extension in your normal Chrome
     profile; Chrome requires manual user action at chrome://extensions.
+  - Extra Chrome flags usually require fully quitting existing Chrome instances
+    before launch; otherwise Chrome may reuse an existing process and ignore them.
 EOF
 }
 
@@ -46,6 +53,8 @@ while [[ $# -gt 0 ]]; do
     --timeout) TIMEOUT_SECONDS="${2:?--timeout requires a value}"; shift ;;
     --dev-profile) DEV_PROFILE=1 ;;
     --profile-dir) PROFILE_DIR="${2:?--profile-dir requires a value}"; shift ;;
+    --chrome-arg) CHROME_ARGS+=("${2:?--chrome-arg requires a value}"); shift ;;
+    --stage-share-title) CHROME_ARGS+=("--auto-select-tab-capture-source-by-title=${2:?--stage-share-title requires a value}"); shift ;;
     --reload-extension) RELOAD_EXTENSION=1 ;;
     --no-daemon) START_DAEMON=0 ;;
     --no-build) BUILD_IF_MISSING=0 ;;
@@ -93,7 +102,12 @@ has_reload_tool() {
 open_chrome_url() {
   local url="$1"
   if [[ "$OSTYPE" == darwin* ]]; then
-    open -a "Google Chrome" "$url"
+    if [[ "${#CHROME_ARGS[@]}" -gt 0 ]]; then
+      echo "Opening Chrome with extra args; fully quit Chrome first if flags do not apply." >&2
+      open -na "Google Chrome" --args "${CHROME_ARGS[@]}" "$url"
+    else
+      open -a "Google Chrome" "$url"
+    fi
     return
   fi
 
@@ -105,7 +119,7 @@ open_chrome_url() {
     fi
   done
   if [[ -n "$chrome_bin" ]]; then
-    "$chrome_bin" "$url" >/dev/null 2>&1 &
+    "$chrome_bin" "${CHROME_ARGS[@]}" "$url" >/dev/null 2>&1 &
   fi
 }
 
@@ -119,6 +133,7 @@ open_chrome() {
         --disable-extensions-except="$EXT_DIR" \
         --no-first-run \
         --no-default-browser-check \
+        "${CHROME_ARGS[@]}" \
         "$OPEN_URL"
     else
       open_chrome_url "$OPEN_URL"
@@ -146,9 +161,10 @@ open_chrome() {
       --disable-extensions-except="$EXT_DIR" \
       --no-first-run \
       --no-default-browser-check \
+      "${CHROME_ARGS[@]}" \
       "$OPEN_URL" >/dev/null 2>&1 &
   else
-    "$chrome_bin" "$OPEN_URL" >/dev/null 2>&1 &
+    "$chrome_bin" "${CHROME_ARGS[@]}" "$OPEN_URL" >/dev/null 2>&1 &
   fi
 }
 
@@ -190,6 +206,9 @@ If you want to use your normal Chrome profile/login sessions:
 
 If you want a guaranteed local dev launch without normal profile cookies:
   bash scripts/launch-local.sh --dev-profile --url "$OPEN_URL"
+
+For Agent Viso Stage auto-share, fully quit Chrome first if needed, then run:
+  bash scripts/launch-local.sh --stage-share-title "Agent Viso Stage" --url "http://127.0.0.1:4310/stage?stageTitle=Agent+Viso+Stage"
 
 Health:
 $(health_json)
