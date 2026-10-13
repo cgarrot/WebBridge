@@ -78,8 +78,9 @@ Response on error: `{"error": "message"}` or `{"ok":false,"error":"message"}`
 | Tool | Required Args | Optional Args | Description |
 |------|--------------|---------------|-------------|
 | get_visible_dom | — | tabId | List interactable elements with IDs |
+| action_space | — | tabId, [maxActions], [maxTextChars] | Indexed action space (visible controls + operations + page text + freshness marker) for decision loops |
 | click_element | nodeId | tabId | Click element by node ID |
-| type_element | nodeId, text | tabId, clearFirst | Type into element by node ID |
+| type_element | nodeId, text | tabId, clearFirst, focus | Type into element by node ID (`focus:false` = native setter, no focus: reliable for multi-field forms) |
 | highlight | — | tabId, nodeId, clear | Highlight element overlay |
 | element_info | x, y | tabId | Get element info at coordinates |
 
@@ -175,6 +176,14 @@ Prefer helper scripts over raw screenshot/PDF API responses when an image or PDF
 bash scripts/screenshot.sh -o /tmp/webbridge-page.png
 bash scripts/save-pdf.sh -o /tmp/webbridge-page.pdf
 ```
+
+## Tab lifecycle & retries (no infinite tabs)
+
+- `navigate`/`preload_navigate` with `newTab:true` **reuse** an existing session tab by default; pass `forceNewTab:true` only for a genuinely new tab.
+- Load waits are short and SPA-safe (`load`≈6s, `networkidle`≈10s, omitted≈1.5s settle); on a slow SPA the call returns `loaded:false` fast instead of hanging.
+- Hard cap: at most 8 agent tabs; the oldest is auto-closed beyond that.
+- **Retry-safe:** if a call is aborted/times out, re-issue the *same* call (it reuses the tab). Do **not** switch to `newTab:true` on retry — that was the old "infinite windows" cause.
+- `list_tabs` returns `tracked` and `primary` flags for session tabs.
 
 ## Error Recovery
 

@@ -16,6 +16,7 @@
     "install-host": "node scripts/install-native-host.js"
   },
   "dependencies": {
+    "@webbridge/semantic": "workspace:*",
     "@webbridge/shared": "workspace:*",
     "fastify": "^5.3.0",
     "ws": "^8.18.0"

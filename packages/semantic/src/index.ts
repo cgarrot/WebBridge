@@ -218,4 +218,5 @@ export function createSemanticFeature(
 
 export { JevClient } from "./jev/client.js";
 export { LruCache, canonicalJson, stableHash } from "./jev/cache.js";
+export { registerPrimitiveSideTools } from "./primitive/side-tools.js";
 export type * from "./types.js";

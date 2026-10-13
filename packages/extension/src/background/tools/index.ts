@@ -19,7 +19,9 @@ import { DragTool } from "./drag.js";
 // Phase 2: Tab navigation
 import { BackTool, ForwardTool, ReloadTool } from "./tab-navigate.js";
 // Phase 3: DOM CUA
-import { GetVisibleDomTool, ClickElementTool, TypeElementTool, HighlightTool } from "./dom-tools.js";
+import { GetVisibleDomTool, ClickElementTool, TypeElementTool, HighlightTool, ResolveObservedPhysicalTool } from "./dom-tools.js";
+// Phase 7: Jev goal loop action space
+import { ActionSpaceTool } from "./action-space.js";
 import { GrantMediaPermissionsTool } from "./site-permissions.js";
 // Meet audio + captions (files existed but were never registered → "Unknown tool")
 import { TabAudioCaptureTool } from "./tab-audio-capture.js";
@@ -69,10 +71,12 @@ export function registerAllTools(): void {
   toolRegistry.register(new ReloadTool());
   // DOM CUA
   toolRegistry.register(new GetVisibleDomTool());
+  toolRegistry.register(new ResolveObservedPhysicalTool()); // J1b
   toolRegistry.register(new ClickElementTool());
   toolRegistry.register(new TypeElementTool());
   toolRegistry.register(new HighlightTool());
-  // Meet audio/captions + media permissions
+  // Jev goal loop (indexed action space for the daemon-side decision loop)
+  toolRegistry.register(new ActionSpaceTool());
   toolRegistry.register(new GrantMediaPermissionsTool());
   toolRegistry.register(new TabAudioCaptureTool());
   toolRegistry.register(new MeetCaptionExtractTool());

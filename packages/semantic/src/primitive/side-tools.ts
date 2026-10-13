@@ -104,6 +104,12 @@ const primitiveObserve: SideToolHandler = async (args: Record<string, unknown>, 
     id: n.id,
     type: mapTagToType(n.tag ?? n.tagName ?? ""),
     attrs: { label: n.text ?? n.label ?? "", ...(n.value ? { value: String(n.value) } : {}),
+      // J2-observe: occurrence metadata passthrough (host-internal, from the
+      // extension registry via get_visible_dom descriptors; absent when the
+      // extension predates the junction — downstream treats absent as
+      // undeclared, never defaulted).
+      ...((n as any).occurrence_incarnation !== undefined ? { occurrence_incarnation: (n as any).occurrence_incarnation } : {}),
+      ...((n as any).occurrence !== undefined ? { occurrence: (n as any).occurrence } : {}),
          },
   }));
   // Candidates only reference admitted entities; STOP always has its own slot.
@@ -255,12 +261,58 @@ function validTextBinding(binding: any, target: unknown): boolean {
     && (binding.form===null || strings(binding.form,['id','label','dom_id','name']) && !!binding.form.id);
 }
 
+
+// H02 request validation (azо-ext m_mutq2ggk, review azo-5 GREEN + azo-2 APPROVED):
+// schema validated BEFORE reservation/enqueue — invalid request → InvalidPrimitiveRequest,
+// never ActionTimeout. Legacy "target" rejected explicitly, never converted.
+// Contract: primitive-action/1.1.
+function validatePrimitiveActionRequest(a: any): { ok: boolean; error?: { kind: string; field?: string; reason: string } } {
+  if (!a || typeof a !== 'object') return { ok: false, error: { kind: 'InvalidPrimitiveRequest', reason: 'action must be an object' } };
+  if ('target' in a && !('target_ref' in a)) return { ok: false, error: { kind: 'InvalidPrimitiveRequest', field: 'target', reason: 'legacy field "target" is not accepted — the contract (primitive-action/1.1) requires "target_ref". Never converted silently.' } };
+  if ('target' in a && 'target_ref' in a) return { ok: false, error: { kind: 'InvalidPrimitiveRequest', field: 'target', reason: 'both "target" and "target_ref" present — ambiguous; send only "target_ref".' } };
+  const tr = a.target_ref;
+  if (tr === undefined) return { ok: false, error: { kind: 'InvalidPrimitiveRequest', field: 'target_ref', reason: 'missing required field' } };
+  if (typeof tr !== 'string' || tr.length === 0) return { ok: false, error: { kind: 'InvalidPrimitiveRequest', field: 'target_ref', reason: `must be a non-empty string (got ${typeof tr})` } };
+  if (tr === 'undefined' || tr === 'null') return { ok: false, error: { kind: 'InvalidPrimitiveRequest', field: 'target_ref', reason: `literal string "${tr}" — stringified undefined/null leaked; fix the caller` } };
+  return { ok: true };
+}
+
+
+// H02 typed-proofs (integration lot, azo-2 GO m_mutrqd26 + azo-5 runs accepted):
+// the TYPE proof carries causality (action/turn/instance) + freshness (read_at >= action_at)
+// and the plane verdict comes from the contract-driven evaluation — no inline comparison.
+// Contract-driven plane evaluation (requiredPlanes integrated in the daemon rule —
+// azo-ext m_mutrvtvf). The CONTRACT of the proof decides the required planes; the daemon's
+// plain TYPE proof requires dom_rendered + native_slot; any FUTURE app/backend channel
+// provided by the caller corroborates and a divergence blocks (no fallback ignoring app).
+// Honest scope: this closes the el.value single-source fault for PLAIN fields only —
+// React/business cases need an app_state channel (declared limit, not closed).
+const TYPE_PLANE_CONTRACT = { required: ['dom_rendered', 'native_slot'], corroborating: ['app_state', 'backend_persisted'] } as const;
+function evaluateTypedFieldFilled(expected: string, planesIn: { dom_rendered?: string | null; native_slot?: string | null; app_state?: string | null; backend_persisted?: string | null },
+  meta: { action: string; turn: string; instance: string; read_at_ms: number; action_at_ms: number }) {
+  const required = TYPE_PLANE_CONTRACT.required as readonly string[];
+  const corroborating = TYPE_PLANE_CONTRACT.corroborating as readonly string[];
+  const missing = required.filter(p => planesIn[p as keyof typeof planesIn] === null || planesIn[p as keyof typeof planesIn] === undefined);
+  if (missing.length) return { verdict: 'UNKNOWN_missing_plane', missing, contract: TYPE_PLANE_CONTRACT };
+  if (meta.read_at_ms < meta.action_at_ms) return { verdict: 'UNKNOWN_stale_read', detail: `read at ${meta.read_at_ms} < action at ${meta.action_at_ms}`, contract: TYPE_PLANE_CONTRACT };
+  for (const p of [...required, ...corroborating]) {
+    const v = planesIn[p as keyof typeof planesIn];
+    if (v === null || v === undefined) continue; // absent corroborator is fine
+    if (v !== expected) return { verdict: 'UNKNOWN_disagreement', plane_in_conflict: p, contract: TYPE_PLANE_CONTRACT };
+  }
+  return { verdict: 'field_proven', planes: [...required], contract: TYPE_PLANE_CONTRACT };
+}
+
 // ---- M1+M2: act (unitary, with reservation + fence) ----
 const primitiveAct: SideToolHandler = async (args: Record<string, unknown>, call: (n: string, a?: Record<string, unknown>) => Promise<unknown>) => {
   const territory = String(args.territory ?? "");
   const leaseId = String(args.lease_id ?? "");
   assertLease(territory, leaseId);
   const a = args.action as any;
+  const actStartedAt = Date.now();
+  // Request validation BEFORE enqueue (0 dispatches on schema refusal — provable by counter)
+  const reqV = validatePrimitiveActionRequest(a);
+  if (!reqV.ok) return { action_id: a?.action_id, status: 'not_executed', error: reqV.error };
   if (!a || !a.kind || !a.operation_id) throw new Error("primitive_act: {action:{kind,operation_id,...}} required");
 
   // Scope operation identity to THIS territory (R2-2: dedup is per-territory)
@@ -320,6 +372,17 @@ const primitiveAct: SideToolHandler = async (args: Record<string, unknown>, call
         // no keyboard simulation, no focus race). The earlier "didn't land" report was a stale daemon.
         // R11 (Phase 4): honor params.focus for framework-managed inputs (YouTube Polymer combobox
         // resets programmatic sets → ActionTimeout). Default stays false (R8 semantics unchanged).
+        // H02-REPAIR Option A (2026-10-04, azo-2 m_mutp19wk + azo-5): focus-taking TYPE is
+        // FORBIDDEN — any focus op (DOM.focus, el.focus, real click alike) orphans the
+        // chrome.debugger attachment (measured: fail-before, run 3, collector v2 — TRIGGER-
+        // ISOLATION.md). Refused PRE-DISPATCH with a typed error. NEVER silently converted
+        // to focus:false (explicit failure > implicit rewrite).
+        if (a.params?.focus === true) {
+          reservations.delete(scopedOp);
+          return { action_id: a.action_id, status: "not_executed",
+            error: { kind: "FocusTakingForbidden",
+              reason: "focus-taking TYPE orphans the chrome.debugger attachment (h02-real-repair TRIGGER-ISOLATION, 2026-10-04). Use focus:false (SET_VALUE write-through, the default). Fail-closed by design; never silently converted." } };
+        }
         const wantFocus = a.params?.focus === true;
         result = await call("type_element", { tabId, nodeId: String(a.target_ref), text: String(a.params?.text ?? ""), clearFirst: true, focus: wantFocus,
           ...(a.params?.binding !== undefined ? { binding: a.params.binding } : {}) });
@@ -375,17 +438,59 @@ const primitiveAct: SideToolHandler = async (args: Record<string, unknown>, call
     // report the HONEST status; reconciliation is the harness's job)
     opsApplied.set(scopedOp, true);
     reservations.delete(scopedOp);
+    // H02 triple-channel (same lot, azo-2 GO m_mutr5gzs + azo-5 PASS): plain-set proof
+    // requires dom_rendered + native_slot to CONCUR with the typed text. One evaluate
+    // returns both planes; disagreement → honest-UNKNOWN verdict IN the proof (status
+    // stays executed — the effect happened — the PROOF carries the plane verdict).
+    let planeProof: Record<string, unknown> = {};
+    if (a.kind === "TYPE" && a.params?.text !== undefined) {
+      try {
+        const dual = await call("evaluate", { tabId, expression:
+          `(() => { const el = document.querySelector('[data-wb-id="${String(a.target_ref)}"]'); if (!el || !('value' in el)) return null; const proto = Object.getPrototypeOf(el); const g = proto && Object.getOwnPropertyDescriptor(proto, 'value')?.get; const own = Object.getOwnPropertyDescriptor(el, 'value'); const native_slot = g ? String(g.call(el)) : (own && !own.get && typeof own.value === 'string' ? String(own.value) : null); return JSON.stringify({ dom_rendered: String(el.value), native_slot }); })()`,
+          returnByValue: true });
+        const raw = typeof dual === 'string' ? dual : (dual as { value?: string })?.value;
+        const planes = raw ? JSON.parse(raw) : null;
+        if (planes) {
+          const expected = String(a.params.text);
+          const meta = { action: String(a.operation_id), turn: String(a.request_id ?? 'unknown-turn'),
+            instance: String(a.target_ref), read_at_ms: Date.now(), action_at_ms: actStartedAt ?? Date.now() };
+          const typed = evaluateTypedFieldFilled(expected, planes, meta);
+          planeProof = { planes, meta, ...typed };
+          // J2-stamp (copies-phase proposal, NOT applied): attestation is stamped
+          // HERE, next to planeProof, from INDEPENDENT recovery only, via the
+          // J1b tool contract (exact): call("resolve_observed_physical",
+          // { tabId, selector: `[data-wb-id="${String(a.target_ref)}"]` })
+          // => { incarnation, occurrence } or throw (unknown/detached).
+          // Sketch (live code once J1+J1b apply; the tool does not exist yet):
+          //   attestation: {
+          //     schema: 'native-proof-attestation/1.2',
+          //     alias_resolved: String(a.target_ref),            // acted alias
+          //     instance_observed: PHYS_FROM_RESOLVE,             // resolveObservedPhysical(), never echo, '' when unknown
+          //     read_clock_ms: meta.read_at_ms,
+          //     clock_domain: ATTEST_CLOCK_DOMAIN,               // validated MVP constants ('unix-ms-wall')
+          //     clock_epoch: ATTEST_CLOCK_EPOCH,                 // validated MVP constants (0)
+          //     operation_attested: String(a.operation_id),
+          //     turn_attested: String(a.request_id ?? 'unknown-turn'),
+          //     attempt_nonce: String(a.params?.attempt_nonce ?? ''), // already travels; empty => downstream refuses
+          //   }
+          // PHYS_FROM_RESOLVE = resolveObservedPhysical() on the live node;
+          // unknown => instance_observed: '' (explicit unknown, validateObserved
+          // refuses downstream). Domain/epoch constants validated (non-empty /
+          // safe-int) or the stamp is withheld (no attestation beats false one).
+        }
+      } catch { /* plane read best-effort; native proof below remains the floor */ }
+    }
     return {
       action_id: a.action_id, status: "executed",...(boundBehavior?{mutated:result.dispatched===true}:{}),
       state_revision: Date.now(), snapshot_revision: Date.now(),
-      proofs: [{ kind: "native", detail: { applied: a.kind, target: a.target_ref,...(boundBehavior?{behavior_result:result}: {}) } }],
+      proofs: [{ kind: "native", detail: { applied: a.kind, target: a.target_ref,...(boundBehavior?{behavior_result:result}: {}), ...(a.kind === 'TYPE' ? { planes: planeProof } : {}) } }],
     };
   } catch (e) {
     opsApplied.set(scopedOp, null);
     reservations.delete(scopedOp);
     return { action_id: a.action_id, status: "effect_unknown", state_revision: 0, snapshot_revision: revision, proofs: [],
       error: boundType||boundCommit ? {kind:boundCommit?'NativeCommitProviderError':'NativeTextProviderError',cause:e instanceof Error?e.message:String(e),action_id:a.action_id,executed:null}
-        : { kind: "ActionTimeout", action_id: a.action_id, executed: null } };
+        : { kind: "ActionTimeout", action_id: a.action_id, executed: null, cause: e instanceof Error ? e.message : String(e) } };
   }
 };
 
@@ -443,7 +548,13 @@ const primitiveProve: SideToolHandler = async (args: Record<string, unknown>, ca
     else valueOk = String(observed) === String(expected);
 
     return { kind: "native", detail: { post_id: pc.post_id, satisfied: filled && valueOk,
-      field: String(fieldRef), value_ok: valueOk, observed: observed ?? null } };
+      field: String(fieldRef), value_ok: valueOk, observed: observed ?? null,
+      // CH-02 observed-side attestation: what THIS prover read and when (native dimensions).
+      // action/turn are pc-echoes (provenance); natively_attested=false until the prover
+      // stamps operation/turn from its own lease records.
+      meta: { instance: String(fieldRef), read_at_ms: Date.now(),
+        action: String(pc.action_ref ?? ''), turn: String(pc.turn_ref ?? ''),
+        natively_attested: false } } };
   } catch {
     return { kind: "native", detail: { post_id: pc.post_id, satisfied: false,
       reason: "field_not_found", field: String(fieldRef) } };

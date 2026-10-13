@@ -3,43 +3,35 @@ import type { DaemonConfig } from "../config/index.js";
 import type { ToolRouter } from "../router/tool-router.js";
 import type { ConnectionManager } from "../connection/manager.js";
 import { normalizeCommandBody, normalizeToolName } from "../compat/command-normalizer.js";
+import { PolicyState } from "../runtime/policy.js";
 
 interface ToolCallBody {
   name: string;
   args?: Record<string, unknown>;
 }
 
+export interface HttpServerExtras {
+  /** Shared runtime policy. When omitted, a fresh local PolicyState is used. */
+  policy?: PolicyState;
+  /** Runtime toggle for the optional semantic side-feature. */
+  onSemanticToggle?: (enabled: boolean) => void | Promise<void>;
+  /** Live semantic feature status, when the feature is enabled. */
+  semanticStatus?: () => Record<string, unknown> | undefined;
+}
+
 const DAEMON_VERSION = "0.1.0";
 const SESSION_NAMED_TOOLS = new Set(["navigate", "new_tab", "claim_tab", "switch_tab"]);
-const READ_ONLY_TOOLS = new Set([
-  "list_tabs",
-  "find_tab",
-  "snapshot",
-  "screenshot",
-  "get_tab_info",
-  "console_logs",
-  "element_info",
-]);
 
 export async function startHttpServer(
   config: DaemonConfig,
   toolRouter: ToolRouter,
-  connectionManager: ConnectionManager
+  connectionManager: ConnectionManager,
+  extras: HttpServerExtras = {}
 ) {
   const app = Fastify({ logger: config.logLevel === "debug" });
-  let paused = false;
-  let evaluateEnabled = false;
+  const policy = extras.policy ?? new PolicyState();
 
-  const applyPolicy = (name: string): string | undefined => {
-    const normalizedName = normalizeToolName(name);
-    if (normalizedName === "evaluate" && !evaluateEnabled) {
-      return "evaluate is disabled. Enable it with POST /config {\"evaluate_enabled\":true} before use.";
-    }
-    if (paused && !READ_ONLY_TOOLS.has(normalizedName)) {
-      return "WebBridge browser control is paused. Read-only tools remain available.";
-    }
-    return undefined;
-  };
+  const applyPolicy = (name: string): string | undefined => policy.check(normalizeToolName(name));
 
   const buildHealth = () => {
     const connections = connectionManager.getConnectionInfo();
@@ -57,8 +49,9 @@ export async function startHttpServer(
       extension_version: extensionVersion,
       capabilities,
       connection_details: connections,
-      paused,
-      evaluate_enabled: evaluateEnabled,
+      paused: policy.paused,
+      evaluate_enabled: policy.evaluateEnabled,
+      semantic: extras.semanticStatus?.(),
       mode: config.mode,
       ports: {
         http: config.httpPort,
@@ -75,10 +68,14 @@ export async function startHttpServer(
     const body = request.body && typeof request.body === "object"
       ? (request.body as Record<string, unknown>)
       : {};
-    if (typeof body.paused === "boolean") paused = body.paused;
-    if (typeof body.evaluate_enabled === "boolean") evaluateEnabled = body.evaluate_enabled;
-    if (typeof body.evaluateEnabled === "boolean") evaluateEnabled = body.evaluateEnabled;
-    return { ok: true, paused, evaluate_enabled: evaluateEnabled };
+    if (typeof body.paused === "boolean") policy.paused = body.paused;
+    if (typeof body.evaluate_enabled === "boolean") policy.evaluateEnabled = body.evaluate_enabled;
+    if (typeof body.evaluateEnabled === "boolean") policy.evaluateEnabled = body.evaluateEnabled;
+    if (typeof body.semantic_enabled === "boolean" && extras.onSemanticToggle) {
+      await extras.onSemanticToggle(body.semantic_enabled);
+      return { ok: true, paused: policy.paused, evaluate_enabled: policy.evaluateEnabled, semantic_enabled: body.semantic_enabled };
+    }
+    return { ok: true, paused: policy.paused, evaluate_enabled: policy.evaluateEnabled };
   });
 
   app.post<{ Body: ToolCallBody }>("/api/tool", async (request, reply) => {

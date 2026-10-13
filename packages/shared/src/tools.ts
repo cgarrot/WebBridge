@@ -27,6 +27,7 @@ export const TOOL_NAMES = [
   "reload",
   // Phase 3: DOM CUA
   "get_visible_dom",
+  "resolve_observed_physical", // J1b (coordinated versioning required)
   "click_element",
   "type_element",
   "highlight",
@@ -50,6 +51,15 @@ export const TOOL_NAMES = [
   // CDP preload support
   "preload_script",
   "preload_navigate",
+  // Virtual camera: replace real webcam with animated ASCII persona
+  "virtual_camera",
+  // Phase 7: Jev goal loop (indexed action space for the daemon-side goal runner)
+  "action_space",
+  // Google Meet audio + captions
+  "meet_caption_extract",
+  // Site permissions (microphone/camera) without a native prompt
+  "grant_media_permissions",
+  "tab_audio_capture",
 ] as const;
 
 export type ToolName = (typeof TOOL_NAMES)[number];
@@ -60,6 +70,8 @@ export interface NavigateArgs {
   url: string;
   tabId?: number;
   newTab?: boolean;
+  /** Force a brand-new tab even if a session tab already exists. Default: reuse. */
+  forceNewTab?: boolean;
   group_title?: string;
   groupTitle?: string;
   waitUntil?: "load" | "domcontentloaded" | "networkidle";
@@ -201,13 +213,46 @@ export interface ReloadArgs {
 
 // --- Phase 3: DOM CUA args ---
 
+export interface ResolveObservedPhysicalArgs { tabId?: number; selector: string } // J1b
 export interface GetVisibleDomArgs {
   tabId?: number;
+  /** Opt-in coherent page/form facts. Omitted: historical raw node array. */
+  includeContext?: boolean;
+  /** Explicit editor/semantic-owner extension. Requires includeContext:true. */
+  includeSemanticContext?: boolean;
+  /** Explicit bounded scroll/media facts in the same native read. */
+  includeBehaviorContext?:boolean;
+}
+
+/** One native DOM read, plus the explicitly resolved tab identity. */
+export interface VisibleDomContext {
+  schema: 'visible-dom/2.0';
+  tabId: number;
+  page: { document_ref: string; url: string; title: string };
+  nodes: Array<{ id: string; tag: string; label: string; dom_id: string; name: string;
+    enabled: boolean; readonly: boolean; submits: boolean; form_ref?: string | null;
+    value?: string; select_ref?: string; href?: string; type?: string; role?: string }>;
+  forms: Array<{ id: string; tag: 'form'; label: string; dom_id: string; name: string }>;
+}
+export interface VisibleDomSemanticContext extends Omit<VisibleDomContext,'schema'|'nodes'> {
+  schema: 'visible-dom/3.0';
+  page:VisibleDomContext['page'] & {ready_state:'loading'|'interactive'|'complete'};
+  nodes: Array<VisibleDomContext['nodes'][number] & { document_ref: string; owner_ref: string | null;
+    editor_kind?: 'native_input' | 'native_textarea' | 'contenteditable' | 'opaque';
+    read_kind?: 'value' | 'innerText' | 'none'; editor_backend_supported?: boolean;
+    /** Optional coherent native facts. Missing means unobserved, never false
+     * or an empty selection; consumers requiring them must refuse. */
+    checked?: boolean; selected_values?: string[] }>;
+  owners: Array<{ id: string; label: string; role: string; dom_id: string; source: string }>;
 }
 
 export interface ClickElementArgs {
   nodeId: string;
   tabId?: number;
+  /** Explicit guarded commit dispatch. No backend success claim. */
+  commitBinding?: import('./native-commit.js').NativeCommitBinding;
+  deadlineAtMs?: number;
+  operationRef?: string;
 }
 
 export interface TypeElementArgs {
@@ -215,12 +260,152 @@ export interface TypeElementArgs {
   text: string;
   tabId?: number;
   clearFirst?: boolean;
+  /** Opt-in native identity guard; text is a complete plain-text replacement. */
+  binding?: import('./native-text.js').NativeTextBinding;
+  /**
+   * `true` (default) focuses the field and inserts real text (keyboard-focus
+   * path). `false` writes through the native value setter with NO focus at all —
+   * framework-safe (React/Vue see an `input` event) and the only path that has
+   * been observed to stay reliable over long multi-field runs (Chrome drops a
+   * tab's debugger attachment after ~2 focus-taking operations on it).
+   */
+  focus?: boolean;
 }
 
 export interface HighlightArgs {
   nodeId: string;
   tabId?: number;
   clear?: boolean;
+}
+
+// --- Phase 7: Jev goal loop ---
+
+/**
+ * `action_space` — one atomic observation for the daemon-side goal loop.
+ * Port of browser-use/jev-ultrafast `snapshot.js`: visible interactive controls
+ * indexed with an operation-compatible action space, plus a freshness marker.
+ */
+export interface ActionSpaceArgs {
+  tabId?: number;
+  /** Cap on returned actions (scroll/wait included). Default 250. */
+  maxActions?: number;
+  /** Cap on the visible page text sent to the decision model. Default 6000. */
+  maxTextChars?: number;
+  /** Cap on the scope text kept per element guard. Default 400. */
+  maxGuardChars?: number;
+}
+
+/** One actionable entry. `kind` drives which browser call executes it. */
+export interface ActionSpaceAction {
+  /** Stable within one observation: `a1`…, plus `scroll_down`/`scroll_up`/`wait`. */
+  id: string;
+  /** `data-wb-id` value of the observed node (absent for scroll/wait). */
+  node?: string;
+  kind: "click" | "fill" | "select" | "scroll" | "wait";
+  role?: string;
+  label: string;
+  value?: string;
+  current_value?: string;
+  checked?: string;
+  selected?: string;
+  expanded?: string;
+  /** Operations this element supports: CLICK | TYPE_TEXT | SELECT. */
+  operations?: string[];
+  /** Native dropdown options, each an individually selectable target. */
+  options?: Array<{ index: string; label: string; value: string }>;
+  rect?: { x: number; y: number; w: number; h: number };
+  /** Signed pixel delta for scroll pseudo-actions. */
+  delta?: number;
+}
+
+export interface ActionSpaceResult {
+  tabId: number;
+  url: string;
+  title: string;
+  w: number;
+  h: number;
+  scroll: { y: number; height: number };
+  /** Visible page text, capped. */
+  text: string;
+  actions: ActionSpaceAction[];
+  /** Freshness key: changes whenever the observed page state changes. */
+  marker: string;
+  /** Per-node semantics captured with the observation (staleness/occlusion guard). */
+  guards: Record<string, unknown[]>;
+  omitted_actions: number;
+}
+
+// --- Google Meet audio + captions ---
+
+/**
+ * Bounded extraction of Google Meet live-caption candidates from the page DOM.
+ * Everything is clamped in the page so a bad value can never blow up the result.
+ */
+export interface MeetCaptionExtractArgs {
+  tabId?: number;
+  /** Max caption rows returned (1..100, default 20). */
+  maxCaptions?: number;
+  /** Max candidate nodes inspected (1..200, default 40). */
+  maxCandidates?: number;
+  /** Max characters per caption text (20..2000, default 300). */
+  maxTextLength?: number;
+  /** Max characters for the whole serialized result (500..100000, default 8000). */
+  maxChars?: number;
+  /** Include captions that are currently hidden (default false). */
+  includeHidden?: boolean;
+  /** Collapse repeated consecutive rows (default true). */
+  dedupe?: boolean;
+  /** Optional CSS selector overriding the default caption container lookup. */
+  selector?: string;
+}
+
+/**
+ * Chrome *site* permission for microphone/camera. Used by meeting bots: a bot
+ * cannot hear anyone until Chrome allows the microphone for the meeting origin,
+ * and the native permission bubble cannot be clicked programmatically.
+ */
+export interface GrantMediaPermissionsArgs {
+  /** Exact origin, e.g. `https://meet.google.com`. */
+  origin: string;
+  /** Set (default true) the microphone permission. */
+  microphone?: boolean;
+  /** Set the camera permission (default false: bots rarely need it). */
+  camera?: boolean;
+  /** Permission value to apply. Default `allow`. */
+  setting?: "allow" | "block" | "ask";
+}
+
+/**
+ * Tab audio capture through a `chrome.tabCapture` stream owned by the offscreen
+ * document. `start` never exposes the stream id; chunks are drained by `drain`
+ * or forwarded to `audioEndpoint` / `eventEndpoint`.
+ */
+export interface TabAudioCaptureArgs {
+  /** Default `preflight`. */
+  action?: "preflight" | "get_stream_id" | "start" | "status" | "drain" | "stop";
+  tabId?: number;
+  /** Tab the capture belongs to (used for `chrome.tabCapture.getMediaStreamId`). */
+  consumerTabId?: number;
+  /** MediaRecorder chunk interval in ms. */
+  timesliceMs?: number;
+  /** Recorder mime type (e.g. `audio/webm;codecs=opus`). */
+  mimeType?: string;
+  /** Stop buffering after this many chunks. */
+  maxChunks?: number;
+  /** Cap applied when draining buffered chunks. */
+  maxBytes?: number;
+  /** Include base64 chunk payloads when draining (default true). */
+  includeBase64?: boolean;
+  /** Clear the buffer after draining (default true). */
+  clear?: boolean;
+  /** Forward raw PCM to this endpoint instead of relying on the drain loop. */
+  audioEndpoint?: string;
+  /** Forward capture lifecycle events to this endpoint. */
+  eventEndpoint?: string;
+  /** PCM sample rate used when forwarding to `audioEndpoint`. */
+  pcmSampleRate?: number;
+  /** PCM samples per forwarded chunk. */
+  pcmChunkSamples?: number;
 }
 
 // --- Phase 4: Advanced args ---
@@ -346,12 +531,34 @@ export interface PreloadNavigateArgs {
   source: string;
   tabId?: number;
   newTab?: boolean;
+  /** Force a brand-new tab even if a session tab already exists. Default: reuse. */
+  forceNewTab?: boolean;
   initialUrl?: string;
   active?: boolean;
   group_title?: string;
   groupTitle?: string;
   initialWaitMs?: number;
   urlWaitMs?: number;
+}
+
+
+export type VirtualCameraState = "idle" | "thinking" | "speaking" | "muted";
+
+export interface VirtualCameraArgs {
+  /** Target Meet tab. If omitted, WebBridge looks for a meet.google.com tab. */
+  tabId?: number;
+  /** Animation state of the ASCII persona. */
+  state: VirtualCameraState;
+  /** ASCII persona key. Defaults to "zob". */
+  persona?: string;
+  /** Display name shown in the persona label (e.g. the bot alias "Sam"). Falls back to persona. */
+  name?: string;
+  /** Mirror the camera horizontally (default true). Set false to disable the flip. */
+  mirror?: boolean;
+  /** Desired frame rate. Defaults to 15. */
+  fps?: number;
+  /** Arm the virtual camera (inject/getUserMedia patch) if not already installed. */
+  arm?: boolean;
 }
 
 export type ToolArgs = {
@@ -379,6 +586,7 @@ export type ToolArgs = {
   forward: ForwardArgs;
   reload: ReloadArgs;
   get_visible_dom: GetVisibleDomArgs;
+  resolve_observed_physical: ResolveObservedPhysicalArgs; // J1b
   click_element: ClickElementArgs;
   type_element: TypeElementArgs;
   highlight: HighlightArgs;
@@ -397,4 +605,11 @@ export type ToolArgs = {
   reload_extension: ReloadExtensionArgs;
   preload_script: PreloadScriptArgs;
   preload_navigate: PreloadNavigateArgs;
+  virtual_camera: VirtualCameraArgs;
+  action_space: ActionSpaceArgs;
+  meet_caption_extract: MeetCaptionExtractArgs;
+  grant_media_permissions: GrantMediaPermissionsArgs;
+  tab_audio_capture: TabAudioCaptureArgs;
 };
+
+export type VisibleDomBehaviorContext = Omit<VisibleDomSemanticContext,'schema'> & {schema:'visible-dom/4.0';scroll_scopes:import('./native-behavior.js').NativeScrollScopesResult;media:import('./native-behavior.js').NativeMediaObserveResult};

@@ -69,8 +69,9 @@ Use `get_visible_dom` to get IDs, then interact by ID.
 | Tool | Args | Description |
 |------|------|-------------|
 | get_visible_dom | [tabId] | List interactable elements with IDs |
+| action_space | [tabId] | Indexed action space: visible controls with operation-compatible ids, page text, freshness marker (read-only; ids resolve via click_element/type_element) |
 | click_element | nodeId, [tabId] | Click by node ID |
-| type_element | nodeId, text, [tabId, clearFirst] | Type into element |
+| type_element | nodeId, text, [tabId, clearFirst, focus] | Type into element. `focus:false` writes through the native value setter with **no focus** — use it for multi-field forms: a tab loses its CDP attachment after ~2 focus-taking operations, while this path stays reliable |
 | highlight | [nodeId, tabId, clear] | Highlight element |
 | element_info | x, y, [tabId] | Info about element at coordinates |
 
@@ -183,6 +184,14 @@ curl -s -X POST http://127.0.0.1:10087/api/tool \
   -H 'Content-Type: application/json' \
   -d '{"name":"console_logs","args":{"levels":["error"],"limit":5}}'
 ```
+
+## Tab lifecycle & retries (no infinite tabs)
+
+- `navigate`/`preload_navigate` with `newTab:true` **reuse** an existing session tab by default; pass `forceNewTab:true` only for a genuinely new tab.
+- Load waits are short and SPA-safe (`load`≈6s, `networkidle`≈10s, omitted≈1.5s settle); on a slow SPA the call returns `loaded:false` fast instead of hanging.
+- Hard cap: at most 8 agent tabs; the oldest is auto-closed beyond that.
+- **Retry-safe:** if a call is aborted/times out, re-issue the *same* call (it reuses the tab). Do **not** switch to `newTab:true` on retry — that was the old "infinite windows" cause.
+- `list_tabs` returns `tracked` and `primary` flags for session tabs.
 
 ## Error Handling
 

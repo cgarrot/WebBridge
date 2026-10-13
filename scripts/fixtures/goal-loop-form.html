@@ -1,0 +1,79 @@
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8">
+  <title>Formulaire d'inscription — fixture goal loop</title>
+  <style>
+    body { font: 15px/1.5 system-ui, sans-serif; margin: 24px; max-width: 620px; }
+    label { display: block; margin: 14px 0 4px; font-weight: 600; }
+    input[type=text], input[type=email], select { width: 100%; padding: 7px; font-size: 15px; }
+    .row { display: flex; gap: 10px; }
+    button { margin-top: 18px; padding: 9px 16px; font-size: 15px; cursor: pointer; }
+    #result { margin-top: 22px; padding: 12px; border-left: 4px solid #2e7d32; background: #f1f8e9; display: none; }
+    .note { color: #555; font-size: 13px; }
+  </style>
+</head>
+<body>
+  <h1>Inscription à la newsletter</h1>
+  <p class="note">Page fixture locale — sert à exercer les chemins TYPE_TEXT / SELECT / CLICK de la boucle Jev.</p>
+
+  <form id="form" novalidate>
+    <div class="row">
+      <div style="flex:1">
+        <label for="nom">Nom complet</label>
+        <input id="nom" name="nom" type="text" placeholder="Votre nom">
+      </div>
+      <div style="flex:1">
+        <label for="email">Adresse e-mail</label>
+        <input id="email" name="email" type="email" placeholder="vous@exemple.fr">
+      </div>
+    </div>
+
+    <label for="ville">Ville</label>
+    <select id="ville" name="ville">
+      <option value="">— Choisir une ville —</option>
+      <option value="paris">Paris</option>
+      <option value="lyon">Lyon</option>
+      <option value="marseille">Marseille</option>
+      <option value="bordeaux">Bordeaux</option>
+    </select>
+
+    <label for="themes">Centre d'intérêt</label>
+    <select id="themes" name="themes">
+      <option value="">— Choisir un thème —</option>
+      <option value="tech">Technologie</option>
+      <option value="jardin">Jardinage</option>
+      <option value="cuisine">Cuisine</option>
+    </select>
+
+    <label style="margin-top:16px">
+      <input id="cgu" name="cgu" type="checkbox" style="width:auto"> J'accepte de recevoir la newsletter
+    </label>
+
+    <button id="envoyer" type="submit">Envoyer l'inscription</button>
+  </form>
+
+  <div id="result" role="status">
+    <strong id="result-title"></strong>
+    <div id="result-body"></div>
+  </div>
+
+  <script>
+    document.getElementById('form').addEventListener('submit', (event) => {
+      event.preventDefault();
+      const data = new FormData(event.target);
+      const nom = data.get('nom') || '(vide)';
+      const email = data.get('email') || '(vide)';
+      const ville = data.get('ville') || '(vide)';
+      const themes = data.get('themes') || '(vide)';
+      const cgu = data.get('cgu') ? 'oui' : 'non';
+      const result = document.getElementById('result');
+      document.getElementById('result-title').textContent = `Inscription envoyée pour ${nom}`;
+      document.getElementById('result-body').innerHTML =
+        `<div>E-mail : ${email}</div><div>Ville : ${ville}</div><div>Thème : ${themes}</div><div>Newsletter acceptée : ${cgu}</div>`;
+      result.style.display = 'block';
+      document.title = `Inscription envoyée pour ${nom}`;
+    });
+  </script>
+</body>
+</html>

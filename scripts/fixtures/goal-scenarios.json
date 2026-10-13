@@ -1,0 +1,185 @@
+[
+  {
+    "id": "wiki-article",
+    "kind": "navigation",
+    "url": "https://fr.wikipedia.org/w/index.php?search=th%C3%A9or%C3%A8mes+d%27incompl%C3%A9tude+de+G%C3%B6del&fulltext=1",
+    "goal": "Ouvrir l'article de Wikipédia sur les théorèmes d'incomplétude de Gödel",
+    "maxSteps": 6,
+    "expect": {
+      "status": "completed",
+      "urlIncludes": "Th%C3%A9or%C3%A8mes_d%27incompl%C3%A9tude_de_G%C3%B6del"
+    }
+  },
+  {
+    "id": "wiki-discussion",
+    "kind": "navigation",
+    "url": "https://fr.wikipedia.org/wiki/Th%C3%A9or%C3%A8mes_d%27incompl%C3%A9tude_de_G%C3%B6del",
+    "goal": "Ouvrir la page de discussion de cet article",
+    "maxSteps": 5,
+    "expect": {
+      "status": "completed",
+      "urlIncludes": "Discussion"
+    }
+  },
+  {
+    "id": "wiki-history",
+    "kind": "navigation",
+    "url": "https://fr.wikipedia.org/wiki/Th%C3%A9or%C3%A8mes_d%27incompl%C3%A9tude_de_G%C3%B6del",
+    "goal": "Afficher l'historique des modifications de cet article",
+    "maxSteps": 5,
+    "expect": {
+      "status": "completed",
+      "urlIncludes": "action=history"
+    }
+  },
+  {
+    "id": "hn-comments",
+    "kind": "navigation",
+    "url": "https://news.ycombinator.com/",
+    "goal": "Ouvrir la page de commentaires du premier article de la liste",
+    "maxSteps": 5,
+    "expect": {
+      "status": "completed",
+      "urlIncludes": "item?id="
+    }
+  },
+  {
+    "id": "hn-newest",
+    "kind": "navigation",
+    "url": "https://news.ycombinator.com/",
+    "goal": "Ouvrir le lien « new » (articles les plus récents)",
+    "maxSteps": 5,
+    "expect": {
+      "status": "completed",
+      "urlIncludes": "/newest"
+    }
+  },
+  {
+    "id": "books-category",
+    "kind": "navigation",
+    "url": "https://books.toscrape.com/",
+    "goal": "Ouvrir la catégorie Travel du catalogue",
+    "maxSteps": 6,
+    "expect": {
+      "status": "completed",
+      "urlIncludes": "travel"
+    }
+  },
+  {
+    "id": "books-first-book",
+    "kind": "navigation",
+    "url": "https://books.toscrape.com/catalogue/category/books/travel_2/index.html",
+    "goal": "Ouvrir la fiche du premier livre de cette liste",
+    "maxSteps": 6,
+    "expect": {
+      "status": "completed",
+      "titleIncludes": "| Books to Scrape"
+    }
+  },
+  {
+    "id": "example-iana",
+    "kind": "navigation",
+    "url": "https://example.com/",
+    "goal": "Suivre le lien « More information » vers la page de l'IANA",
+    "maxSteps": 5,
+    "expect": {
+      "urlIncludes": "iana.org"
+    },
+    "acceptStatus": [
+      "completed",
+      "paused",
+      "blocked"
+    ]
+  },
+  {
+    "id": "mdn-reduce",
+    "kind": "documentation",
+    "url": "https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Array/filter",
+    "goal": "Ouvrir la documentation de la méthode Array.prototype.reduce depuis le menu de cette page",
+    "maxSteps": 6,
+    "expect": {
+      "status": "completed",
+      "urlIncludes": "Array/reduce"
+    }
+  },
+  {
+    "id": "form-httpbin",
+    "kind": "form",
+    "url": "https://httpbin.org/forms/post",
+    "goal": "Remplis la commande de pizza : nom « Ada Lovelace », e-mail « ada@example.com », taille medium, commentaire « Sans ananas svp », puis envoie la commande",
+    "maxSteps": 12,
+    "textHelper": {
+      "Customer name": "Ada Lovelace",
+      "E-mail address": "ada@example.com",
+      "Delivery instructions": "Sans ananas svp",
+      "*": "Ada"
+    },
+    "expect": {
+      "status": "completed",
+      "urlIncludes": "httpbin.org/post"
+    }
+  },
+  {
+    "id": "form-selenium",
+    "kind": "form",
+    "url": "https://www.selenium.dev/selenium/web/web-form.html",
+    "goal": "Mets « Ada Lovelace » dans le champ texte, choisis « Two » dans la liste déroulante, écris « Bonjour depuis la boucle Jev » dans la zone de texte, puis soumets le formulaire",
+    "maxSteps": 10,
+    "textHelper": {
+      "Text input": "Ada Lovelace",
+      "Textarea": "Bonjour depuis la boucle Jev",
+      "*": "Ada"
+    },
+    "expect": {
+      "status": "completed",
+      "urlIncludes": "submitted-form.html"
+    }
+  },
+  {
+    "id": "wall-blocked",
+    "kind": "refusal",
+    "url": "http://127.0.0.1:8799/goal-loop-login-wall.html",
+    "goal": "Résume l'article sur les volants de badminton",
+    "maxSteps": 8,
+    "expect": {
+      "status": "paused",
+      "pauseReason": "page_blocked",
+      "blockersInclude": "needs_login"
+    }
+  },
+  {
+    "id": "no-sort-refusal",
+    "kind": "refusal",
+    "url": "https://books.toscrape.com/",
+    "goal": "Trier les livres par prix croissant",
+    "maxSteps": 6,
+    "expect": {},
+    "acceptStatus": [
+      "blocked",
+      "paused"
+    ],
+    "acceptPauseReason": [
+      "low_confidence",
+      "blocked_by_model"
+    ]
+  },
+  {
+    "id": "ambiguous-goal",
+    "kind": "ambiguous",
+    "url": "https://news.ycombinator.com/",
+    "goal": "Occupe-toi de la page",
+    "maxSteps": 6,
+    "minConfidence": 0.5,
+    "expect": {
+      "urlIncludes": "ycombinator"
+    },
+    "acceptStatus": [
+      "paused",
+      "blocked"
+    ],
+    "acceptPauseReason": [
+      "low_confidence",
+      "blocked_by_model"
+    ]
+  }
+]

@@ -1,0 +1,56 @@
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8">
+  <title>Contenu réservé aux membres</title>
+  <style>
+    body { font: 15px/1.6 system-ui, sans-serif; margin: 0; background: #f6f7f9; color: #222; }
+    header { padding: 14px 24px; background: #1a1d24; color: #fff; display: flex; justify-content: space-between; align-items: center; }
+    main { max-width: 460px; margin: 64px auto; background: #fff; padding: 28px; border-radius: 10px; box-shadow: 0 2px 14px rgba(0,0,0,.08); }
+    h1 { font-size: 21px; margin: 0 0 6px; }
+    p { margin: 6px 0 18px; color: #555; }
+    label { display: block; margin: 12px 0 4px; font-weight: 600; font-size: 14px; }
+    input { width: 100%; padding: 8px; font-size: 15px; }
+    button { margin-top: 18px; width: 100%; padding: 10px; font-size: 15px; background: #1a1d24; color: #fff; border: 0; border-radius: 6px; cursor: pointer; }
+    .banner { position: fixed; bottom: 16px; left: 16px; right: 16px; background: #fff8e1; border: 1px solid #ffe082; padding: 12px 16px; border-radius: 8px; display: flex; gap: 12px; align-items: center; }
+    .banner button { margin: 0; width: auto; padding: 6px 12px; background: #8d6e63; }
+    .wall { color: #8e0000; font-size: 13px; margin-top: 14px; }
+  </style>
+</head>
+<body>
+  <header>
+    <strong>Le Journal des Volants</strong>
+    <a href="#" style="color:#9ecbff">S'abonner</a>
+  </header>
+
+  <main>
+    <h1>Contenu réservé aux membres</h1>
+    <p>Connectez-vous pour lire « L'article sur les volants de badminton » et les 1 240 autres articles.</p>
+
+    <form id="login">
+      <label for="email">Adresse e-mail</label>
+      <input id="email" type="email" placeholder="vous@exemple.fr">
+      <label for="password">Mot de passe</label>
+      <input id="password" type="password" placeholder="••••••••">
+      <button id="submit" type="submit">Se connecter</button>
+    </form>
+    <p class="wall">Il vous reste 0 article gratuit aujourd'hui.</p>
+  </main>
+
+  <div class="banner" role="dialog" aria-label="Cookies">
+    <span>Nous utilisons des cookies pour améliorer votre expérience.</span>
+    <button id="accept">Accepter</button>
+  </div>
+
+  <script>
+    // A login wall: no real content is reachable without credentials.
+    document.getElementById('login').addEventListener('submit', (e) => {
+      e.preventDefault();
+      document.getElementById('submit').textContent = 'Identifiants invalides';
+    });
+    document.getElementById('accept').addEventListener('click', () => {
+      document.querySelector('.banner').remove();
+    });
+  </script>
+</body>
+</html>

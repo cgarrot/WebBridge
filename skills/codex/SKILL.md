@@ -73,12 +73,17 @@ await callTool("drag", { path: [{x:100,y:100}, {x:300,y:300}] });
 ### DOM CUA (Node-ID)
 Use `get_visible_dom` first for node IDs, then interact by ID:
 
+For goal-driven loops (one objective, a decision model picks operation + target), use `action_space`
+and the daemon-side goal loop (`WEBBRIDGE_SEMANTIC_ENABLED=1`): `run_goal` → `goal_wait`.
+
 ```js
 const dom = await callTool("get_visible_dom", {});
 console.log(dom.data); // [{id:"n1",tag:"button",text:"Submit",...}, ...]
 
 await callTool("click_element", { nodeId: "n3" });
 await callTool("type_element", { nodeId: "n5", text: "hello world" });
+// Multi-field forms: pass focus:false — the focused path drops the tab's CDP attachment after ~2 calls.
+await callTool("type_element", { nodeId: "n5", text: "hello world", focus: false });
 await callTool("highlight", { nodeId: "n3" });
 await callTool("highlight", { clear: true }); // clear highlight
 
@@ -199,6 +204,14 @@ await display(img);
 ## Variable Reuse
 
 Define `callTool` once in the first cell and reuse it. Do not redeclare it.
+
+## Tab lifecycle & retries (no infinite tabs)
+
+- `navigate`/`preload_navigate` with `newTab:true` **reuse** an existing session tab by default; pass `forceNewTab:true` only for a genuinely new tab.
+- Load waits are short and SPA-safe (`load`≈6s, `networkidle`≈10s, omitted≈1.5s settle); on a slow SPA the call returns `loaded:false` fast instead of hanging.
+- Hard cap: at most 8 agent tabs; the oldest is auto-closed beyond that.
+- **Retry-safe:** if a call is aborted/times out, re-issue the *same* call (it reuses the tab). Do **not** switch to `newTab:true` on retry — that was the old "infinite windows" cause.
+- `list_tabs` returns `tracked` and `primary` flags for session tabs.
 
 ## Error Recovery
 

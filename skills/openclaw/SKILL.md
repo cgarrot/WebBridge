@@ -63,8 +63,9 @@ Body: { "name": "<tool>", "args": { ... } }
 | Tool | Required Args | Optional Args | Returns |
 |------|--------------|---------------|---------|
 | get_visible_dom | — | tabId | [{id, tag, text, role, rect}] |
+| action_space | — | tabId, [maxActions] | [{id, node, kind, role, label, value, rect}] + marker |
 | click_element | nodeId | tabId | {tabId, nodeId, tag, text} |
-| type_element | nodeId, text | tabId, clearFirst | {tabId, nodeId, typed} |
+| type_element | nodeId, text | tabId, clearFirst, focus | {tabId, nodeId, typed, focusedVia, value} (`focus:false` = no-focus native setter) |
 | highlight | — | nodeId, tabId, clear | {tabId, nodeId, rect} |
 | element_info | x, y | tabId | {tabId, element: {...}} |
 
@@ -174,6 +175,14 @@ curl -X POST http://127.0.0.1:10087/api/tool \
   -H 'Content-Type: application/json' \
   -d '{"name":"back","args":{}}'
 ```
+
+## Tab lifecycle & retries (no infinite tabs)
+
+- `navigate`/`preload_navigate` with `newTab:true` **reuse** an existing session tab by default; pass `forceNewTab:true` only for a genuinely new tab.
+- Load waits are short and SPA-safe (`load`≈6s, `networkidle`≈10s, omitted≈1.5s settle); on a slow SPA the call returns `loaded:false` fast instead of hanging.
+- Hard cap: at most 8 agent tabs; the oldest is auto-closed beyond that.
+- **Retry-safe:** if a call is aborted/times out, re-issue the *same* call (it reuses the tab). Do **not** switch to `newTab:true` on retry — that was the old "infinite windows" cause.
+- `list_tabs` returns `tracked` and `primary` flags for session tabs.
 
 ## Error Handling
 
