@@ -12,16 +12,43 @@
     "storage",
     "alarms",
     "tabGroups",
+    "tabCapture",
+    "offscreen",
     "windows",
     "nativeMessaging",
-    "history"
+    "history",
+    "contentSettings"
   ],
-  "host_permissions": ["<all_urls>"],
+  "host_permissions": [
+    "<all_urls>"
+  ],
   "background": {
     "service_worker": "background.js",
     "type": "module"
   },
   "action": {
     "default_popup": "popup/index.html"
-  }
+  },
+  "content_scripts": [
+    {
+      "matches": [
+        "https://meet.google.com/*"
+      ],
+      "js": [
+        "content/meet-audio-prehook.js"
+      ],
+      "run_at": "document_start",
+      "world": "MAIN"
+    },
+    {
+      "matches": [
+        "https://meet.google.com/*"
+      ],
+      "js": [
+        "content/virtual-camera.js"
+      ],
+      "run_at": "document_start",
+      "world": "MAIN"
+    }
+  ]
 }

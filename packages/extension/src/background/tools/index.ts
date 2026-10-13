@@ -20,6 +20,10 @@ import { DragTool } from "./drag.js";
 import { BackTool, ForwardTool, ReloadTool } from "./tab-navigate.js";
 // Phase 3: DOM CUA
 import { GetVisibleDomTool, ClickElementTool, TypeElementTool, HighlightTool } from "./dom-tools.js";
+import { GrantMediaPermissionsTool } from "./site-permissions.js";
+// Meet audio + captions (files existed but were never registered → "Unknown tool")
+import { TabAudioCaptureTool } from "./tab-audio-capture.js";
+import { MeetCaptionExtractTool } from "./meet-caption-extract.js";
 // Phase 4: Advanced
 import { ClipboardTool } from "./clipboard.js";
 import { ConsoleLogsTool } from "./console-logs.js";
@@ -30,6 +34,9 @@ import { ExtractLinksTool, ExtractTextTool, ExtractTableTool } from "./extract.j
 import { ReloadExtensionTool } from "./extension-lifecycle.js";
 import { PreloadScriptTool } from "./preload-script.js";
 import { PreloadNavigateTool } from "./preload-navigate.js";
+// Virtual camera plugin
+import { VirtualCameraTool } from "./virtual-camera/tool.js";
+
 // Phase 5: Session & Tab Group UX
 import { NameSessionTool, FinalizeTabsTool, ClaimTabTool, BrowserHistoryTool } from "./session-tools.js";
 
@@ -65,6 +72,10 @@ export function registerAllTools(): void {
   toolRegistry.register(new ClickElementTool());
   toolRegistry.register(new TypeElementTool());
   toolRegistry.register(new HighlightTool());
+  // Meet audio/captions + media permissions
+  toolRegistry.register(new GrantMediaPermissionsTool());
+  toolRegistry.register(new TabAudioCaptureTool());
+  toolRegistry.register(new MeetCaptionExtractTool());
   // Advanced
   toolRegistry.register(new ClipboardTool());
   toolRegistry.register(new ConsoleLogsTool());
@@ -82,6 +93,7 @@ export function registerAllTools(): void {
   toolRegistry.register(new FinalizeTabsTool());
   toolRegistry.register(new ClaimTabTool());
   toolRegistry.register(new BrowserHistoryTool());
+  toolRegistry.register(new VirtualCameraTool());
 }
 
 export { toolRegistry } from "./registry.js";

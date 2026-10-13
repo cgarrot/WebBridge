@@ -55,11 +55,34 @@ function buildPopupHtml(): Plugin {
   };
 }
 
+function buildOffscreenHtml(): Plugin {
+  return {
+    name: "build-offscreen-html",
+    writeBundle() {
+      const dist = resolve(__dirname, "dist");
+      mkdirSync(resolve(dist, "offscreen"), { recursive: true });
+
+      const html = `<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>WebBridge Tab Audio Capture</title>
+</head>
+<body>
+  <script type="module" src="../offscreen.js"></script>
+</body>
+</html>`;
+
+      writeFileSync(resolve(dist, "offscreen", "tab-audio.html"), html);
+    },
+  };
+}
+
 function buildContentScripts(): Plugin {
   return {
     name: "build-content-scripts",
     async closeBundle() {
-      const contentEntries = ["cursor-overlay"];
+      const contentEntries = ["cursor-overlay", "meet-audio-prehook", "virtual-camera"];
       for (const name of contentEntries) {
         await viteBuild({
           configFile: false,
@@ -95,6 +118,7 @@ export default defineConfig({
       input: {
         background: resolve(__dirname, "src/background/index.ts"),
         popup: resolve(__dirname, "src/popup/main.ts"),
+        offscreen: resolve(__dirname, "src/offscreen/tab-audio.ts"),
       },
       output: {
         entryFileNames: "[name].js",
@@ -103,7 +127,7 @@ export default defineConfig({
       },
     },
   },
-  plugins: [copyExtensionAssets(), buildPopupHtml(), buildContentScripts()],
+  plugins: [copyExtensionAssets(), buildPopupHtml(), buildOffscreenHtml(), buildContentScripts()],
   resolve: {
     alias: {
       "@webbridge/shared": resolve(__dirname, "../shared/src"),
