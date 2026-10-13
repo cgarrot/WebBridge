@@ -2,16 +2,27 @@ import type { NavigateArgs } from "@webbridge/shared";
 import { BaseTool, type ToolContext } from "./base.js";
 import { resolveTabId } from "../../cdp/session.js";
 import { sessionManager } from "../session-manager.js";
+import { resolveLoadStrategy, waitForLoad, type WaitUntil } from "../../cdp/load.js";
+
+function originOf(url: string): string | null {
+  try {
+    return new URL(url).hostname;
+  } catch {
+    return null;
+  }
+}
 
 export class NavigateTool extends BaseTool {
   readonly name = "navigate" as const;
-  readonly description = "Navigate a tab to the given URL";
+  readonly description =
+    "Navigate a tab to the given URL. Reuses an existing session tab by default (newTab:true); pass forceNewTab:true to force a brand-new tab.";
 
-  async execute(args: Record<string, unknown>, ctx: ToolContext): Promise<unknown> {
+  async execute(args: Record<string, unknown>, _ctx: ToolContext): Promise<unknown> {
     const {
       url,
       tabId: rawTabId,
       newTab = false,
+      forceNewTab = false,
       group_title,
       groupTitle,
       waitUntil,
@@ -24,61 +35,68 @@ export class NavigateTool extends BaseTool {
     }
 
     let tabId: number;
+    let created = false;
+    let reused = false;
+    let closedDueToCap: number[] = [];
+
     if (newTab) {
-      const tab = await chrome.tabs.create({ url, active: true });
-      if (tab.id === undefined) throw new Error("navigate: failed to create new tab");
-      tabId = tab.id;
+      // Create-or-reuse: retries no longer stack tabs.
+      const acquired = await sessionManager.acquireTab({
+        url,
+        newTab: true,
+        forceNewTab,
+        preferOrigin: originOf(url) ?? undefined,
+        active: true,
+      });
+      tabId = acquired.tabId;
+      created = acquired.created;
+      reused = acquired.reused;
+      closedDueToCap = acquired.closedDueToCap;
+      if (reused) {
+        // Reused tab: navigate it to the requested URL.
+        await chrome.tabs.update(tabId, { url, active: true });
+      }
     } else {
       tabId = await resolveTabId(rawTabId);
       await chrome.tabs.update(tabId, { url, active: true });
+      if (!sessionManager.isTracked(tabId)) {
+        try {
+          await sessionManager.addTabToSession(tabId, "agent");
+        } catch {
+          // best-effort
+        }
+      }
     }
 
-    if (waitUntil !== "domcontentloaded") {
-      try {
-        await waitForTabComplete(tabId);
-      } catch {
-        // timeout is non-fatal for navigation
-      }
+    sessionManager.setPrimary(tabId);
+
+    // Reliable, bounded load wait. Non-fatal on timeout (returns loaded:false)
+    // so we always respond before the caller aborts and retries.
+    const strategy = resolveLoadStrategy(waitUntil as WaitUntil | undefined);
+    let loadResult;
+    try {
+      loadResult = await waitForLoad(tabId, strategy);
+    } catch (err) {
+      loadResult = {
+        loaded: false,
+        strategy: strategy.kind,
+        elapsedMs: 0,
+        reason: err instanceof Error ? err.message : String(err),
+      };
     }
 
     const currentTab = await chrome.tabs.get(tabId);
-
-    if (!sessionManager.isTracked(tabId)) {
-      try {
-        await sessionManager.addTabToSession(tabId, "agent");
-      } catch {
-        // best-effort
-      }
-    }
 
     return {
       tabId,
       url: currentTab.url ?? url,
       title: currentTab.title,
+      created,
+      reused,
+      closedDueToCap: closedDueToCap.length ? closedDueToCap : undefined,
+      loaded: loadResult.loaded,
+      loadStrategy: loadResult.strategy,
+      loadReason: loadResult.reason,
     };
   }
-}
-
-function waitForTabComplete(tabId: number, timeoutMs = 30_000): Promise<void> {
-  return new Promise((resolve, reject) => {
-    let done = false;
-    const finish = (error?: Error) => {
-      if (done) return;
-      done = true;
-      clearTimeout(timer);
-      chrome.tabs.onUpdated.removeListener(listener);
-      if (error) reject(error);
-      else resolve();
-    };
-
-    const timer = setTimeout(() => finish(new Error(`Page load timeout after ${timeoutMs}ms`)), timeoutMs);
-    const listener = (updatedTabId: number, changeInfo: chrome.tabs.TabChangeInfo) => {
-      if (updatedTabId === tabId && changeInfo.status === "complete") finish();
-    };
-    chrome.tabs.onUpdated.addListener(listener);
-
-    chrome.tabs.get(tabId).then((tab) => {
-      if (tab.status === "complete") finish();
-    }).catch((error) => finish(error instanceof Error ? error : new Error(String(error))));
-  });
 }

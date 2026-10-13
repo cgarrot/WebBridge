@@ -19,12 +19,16 @@ export class ListTabsTool extends BaseTool {
     _ctx: ToolContext
   ): Promise<unknown> {
     const tabs = await chrome.tabs.query({});
+    const trackedIds = new Set(sessionManager.getTrackedTabIds());
+    const primaryId = sessionManager.getPrimaryTabId();
     return tabs.map((tab) => ({
       id: tab.id,
       title: tab.title,
       url: tab.url,
       active: tab.active,
       windowId: tab.windowId,
+      tracked: tab.id !== undefined && trackedIds.has(tab.id),
+      primary: tab.id !== undefined && tab.id === primaryId,
     }));
   }
 }
@@ -74,23 +78,21 @@ export class FindTabTool extends BaseTool {
 
 export class NewTabTool extends BaseTool {
   readonly name = "new_tab" as const;
-  readonly description = "Create a new browser tab";
+  readonly description = "Create a new browser tab (always creates; bounded by the agent tab cap)";
 
   async execute(args: Record<string, unknown>, _ctx: ToolContext): Promise<unknown> {
     const { url, active = true } = args as unknown as NewTabArgs;
 
-    const tab = await chrome.tabs.create({
+    // forceNewTab preserves the tool's explicit "create" contract, while
+    // acquireTab still enforces MAX_AGENT_TABS so open tabs stay bounded.
+    const acquired = await sessionManager.acquireTab({
       url: url || "about:blank",
+      newTab: true,
+      forceNewTab: true,
       active,
     });
-
-    if (tab.id !== undefined) {
-      try {
-        await sessionManager.addTabToSession(tab.id, "agent");
-      } catch {
-        // Tab grouping is best-effort; don't fail the tool
-      }
-    }
+    const tabId = acquired.tabId;
+    const tab = await chrome.tabs.get(tabId);
 
     return {
       id: tab.id,
@@ -98,6 +100,8 @@ export class NewTabTool extends BaseTool {
       url: tab.url ?? tab.pendingUrl,
       active: tab.active,
       windowId: tab.windowId,
+      created: acquired.created,
+      closedDueToCap: acquired.closedDueToCap.length ? acquired.closedDueToCap : undefined,
     };
   }
 }

@@ -55,6 +55,18 @@ export class CDPBridge {
         );
       }
 
+      // Chrome reports an ORPHANED attachment (the tab still owns a debugger
+      // session from a previous extension/service-worker instance after a
+      // reload, a service-worker recycle, or a focus on an editable field) with
+      // this misleading message. Name it and give the recovery.
+      if (msg.includes("chrome-extension:// URL of different extension")) {
+        throw new Error(
+          `Tab ${tabId} has a stale CDP attachment that only Chrome can release. ` +
+            `Reload the tab (or navigate it) and retry; if it persists, reload the extension. ` +
+            `Original error: ${msg}`
+        );
+      }
+
       const tab = await chrome.tabs.get(tabId).catch(() => undefined);
       if (isBrowserInternalUrl(tab?.url)) {
         throw new Error(

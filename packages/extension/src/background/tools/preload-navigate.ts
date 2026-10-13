@@ -43,6 +43,7 @@ export class PreloadNavigateTool extends BaseTool {
       source,
       tabId: rawTabId,
       newTab = true,
+      forceNewTab = false,
       initialUrl = DEFAULT_INITIAL_URL,
       active = true,
       group_title,
@@ -63,10 +64,18 @@ export class PreloadNavigateTool extends BaseTool {
     let tabId: number;
     let created = false;
     if (newTab) {
-      const tab = await chrome.tabs.create({ url: initialUrl || DEFAULT_INITIAL_URL, active });
-      if (tab.id === undefined) throw new Error("preload_navigate: failed to create tab");
-      tabId = tab.id;
-      created = true;
+      const acquired = await sessionManager.acquireTab({
+        url: initialUrl || DEFAULT_INITIAL_URL,
+        newTab: true,
+        forceNewTab,
+        active,
+      });
+      tabId = acquired.tabId;
+      created = acquired.created;
+      if (!acquired.created) {
+        // Reused tab: reset it to the initial URL before preload registration.
+        await chrome.tabs.update(tabId, { url: initialUrl || DEFAULT_INITIAL_URL, active });
+      }
     } else {
       tabId = await resolveTabId(rawTabId);
       if (active) await chrome.tabs.update(tabId, { active: true });

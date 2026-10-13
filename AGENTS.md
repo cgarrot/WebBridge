@@ -65,6 +65,18 @@ No automated test suite yet. After changes:
 2. Load extension from `packages/extension/dist` in Chrome
 3. `pnpm dev:daemon` and `curl` status + one tool call
 
+## Tab Lifecycle (no infinite windows)
+
+Tab creation is centralized in `sessionManager.acquireTab()` (create-or-reuse):
+
+- `navigate`/`preload_navigate` with `newTab:true` **reuse** an existing session tab by default (preferring one on the same site). Use `forceNewTab:true` only when a genuinely new tab is needed.
+- Hard cap `MAX_AGENT_TABS` (8, in `@webbridge/shared`): the oldest non-primary agent tab is auto-closed when exceeded — runaway tab creation is impossible.
+- Load waits honor `waitUntil` via CDP with short bounded timeouts (`load`≈6s, `networkidle`≈10s, `domcontentloaded`=none, omitted≈1.5s settle). SPAs that never "complete" still return fast with `loaded:false`.
+- The daemon collapses identical in-flight/recent `navigate`/`new_tab` calls (idempotent retries).
+- `trackedTabs` self-heal via `chrome.tabs.onRemoved`; `list_tabs` reports `tracked`/`primary`.
+
+Smoke test: `node scripts/test-tab-lifecycle.mjs` (requires running daemon + connected extension).
+
 ## Boundaries — Do Not Touch
 
 - Do not commit `.env`, credentials, or API keys

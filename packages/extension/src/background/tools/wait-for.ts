@@ -1,6 +1,7 @@
 import type { WaitForArgs } from "@webbridge/shared";
 import { BaseTool, type ToolContext } from "./base.js";
 import { resolveTabId } from "../../cdp/session.js";
+import { waitForLoad } from "../../cdp/load.js";
 
 export class WaitForTool extends BaseTool {
   readonly name = "wait_for" as const;
@@ -24,7 +25,7 @@ export class WaitForTool extends BaseTool {
       case "load":
         return this.waitForTabLoad(tabId, timeoutMs);
       case "network_idle":
-        return this.waitForNetworkIdle(tabId, timeoutMs, ctx);
+        return this.waitForNetworkIdle(tabId, timeoutMs);
       default:
         throw new Error(`wait_for: unknown type "${type}"`);
     }
@@ -52,27 +53,12 @@ export class WaitForTool extends BaseTool {
     throw new Error(`wait_for: selector "${selector}" not found within ${timeoutMs}ms`);
   }
 
-  private waitForTabLoad(tabId: number, timeoutMs: number): Promise<unknown> {
-    return new Promise((resolve, reject) => {
-      let done = false;
-      const finish = (error?: Error) => {
-        if (done) return;
-        done = true;
-        clearTimeout(timer);
-        chrome.tabs.onUpdated.removeListener(listener);
-        if (error) reject(error);
-        else resolve({ tabId, type: "load", complete: true });
-      };
-
-      const timer = setTimeout(() => finish(new Error(`wait_for: load timeout after ${timeoutMs}ms`)), timeoutMs);
-      const listener = (updatedTabId: number, changeInfo: chrome.tabs.TabChangeInfo) => {
-        if (updatedTabId === tabId && changeInfo.status === "complete") finish();
-      };
-      chrome.tabs.onUpdated.addListener(listener);
-      chrome.tabs.get(tabId).then((tab) => {
-        if (tab.status === "complete") finish();
-      }).catch((error) => finish(error instanceof Error ? error : new Error(String(error))));
-    });
+  private async waitForTabLoad(tabId: number, timeoutMs: number): Promise<unknown> {
+    const result = await waitForLoad(tabId, { kind: "load", timeoutMs });
+    if (!result.loaded) {
+      throw new Error(`wait_for: load not reached within ${timeoutMs}ms (${result.reason})`);
+    }
+    return { tabId, type: "load", complete: true };
   }
 
   private waitForEvent(
@@ -101,54 +87,11 @@ export class WaitForTool extends BaseTool {
     });
   }
 
-  private async waitForNetworkIdle(
-    tabId: number,
-    timeoutMs: number,
-    ctx: ToolContext
-  ): Promise<unknown> {
-    await ctx.cdp.send(tabId, "Network.enable");
-
-    return new Promise((resolve, reject) => {
-      let pending = 0;
-      let idleTimer: ReturnType<typeof setTimeout> | null = null;
-
-      const deadline = setTimeout(() => {
-        cleanup();
-        reject(new Error(`wait_for: network_idle timeout after ${timeoutMs}ms`));
-      }, timeoutMs);
-
-      const checkIdle = () => {
-        if (idleTimer) clearTimeout(idleTimer);
-        if (pending <= 0) {
-          idleTimer = setTimeout(() => {
-            cleanup();
-            resolve({ tabId, type: "network_idle", idle: true });
-          }, 500);
-        }
-      };
-
-      const listener = (source: chrome.debugger.Debuggee, method: string) => {
-        if (source.tabId !== tabId) return;
-        if (method === "Network.requestWillBeSent") {
-          pending++;
-          if (idleTimer) clearTimeout(idleTimer);
-        } else if (
-          method === "Network.loadingFinished" ||
-          method === "Network.loadingFailed"
-        ) {
-          pending = Math.max(0, pending - 1);
-          checkIdle();
-        }
-      };
-
-      const cleanup = () => {
-        clearTimeout(deadline);
-        if (idleTimer) clearTimeout(idleTimer);
-        chrome.debugger.onEvent.removeListener(listener);
-      };
-
-      chrome.debugger.onEvent.addListener(listener);
-      checkIdle();
-    });
+  private async waitForNetworkIdle(tabId: number, timeoutMs: number): Promise<unknown> {
+    const result = await waitForLoad(tabId, { kind: "networkidle", timeoutMs });
+    if (!result.loaded) {
+      throw new Error(`wait_for: network not idle within ${timeoutMs}ms (${result.reason})`);
+    }
+    return { tabId, type: "network_idle", idle: true };
   }
 }

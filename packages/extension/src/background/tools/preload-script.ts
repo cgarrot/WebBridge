@@ -1,6 +1,7 @@
 import type { PreloadScriptArgs } from "@webbridge/shared";
 import { BaseTool, type ToolContext } from "./base.js";
 import { getActiveTabId, isBrowserInternalUrl, resolveTabId } from "../../cdp/session.js";
+import { sessionManager } from "../session-manager.js";
 
 const MAX_PRELOAD_SOURCE_CHARS = 250_000;
 const DEFAULT_PRELOAD_TARGET_URL = "data:text/html,%3Ctitle%3Ewebbridge-preload%3C/title%3E";
@@ -29,10 +30,14 @@ async function resolvePreloadTarget(rawTabId: number | undefined): Promise<{
     return { tabId: activeTabId, created: false, initialUrl: null, redirectedFrom: null };
   }
 
-  const tab = await chrome.tabs.create({ url: DEFAULT_PRELOAD_TARGET_URL, active: true });
-  if (tab.id === undefined) throw new Error("preload_script: failed to create preload target tab");
+  const acquired = await sessionManager.acquireTab({
+    url: DEFAULT_PRELOAD_TARGET_URL,
+    newTab: true,
+    forceNewTab: true,
+    active: true,
+  });
   return {
-    tabId: tab.id,
+    tabId: acquired.tabId,
     created: true,
     initialUrl: DEFAULT_PRELOAD_TARGET_URL,
     redirectedFrom: { tabId: activeTabId, url: activeTab.url ?? null },

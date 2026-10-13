@@ -41,13 +41,7 @@ export async function resolveTabId(tabId?: number): Promise<number> {
   if (tabId == null) return getActiveTabId();
   if (await tabExists(tabId)) return tabId;
 
-  try {
-    return await getActiveTabId();
-  } catch {
-    throw new Error(
-      `Tab ${tabId} is stale or closed, and no active tab is available. Open or select a tab, then retry without tabId or with a current tabId.`
-    );
-  }
+  throw new Error(`Tab ${tabId} is stale or closed. Select a current tabId before retrying.`);
 }
 
 export async function ensureAttached(tabId: number): Promise<void> {
